@@ -1,4 +1,5 @@
 from .io_utils import (
+	geodataframe_to_csv,
 	load_points,
 	load_points_async,
 	read_dataframe,
@@ -23,6 +24,7 @@ __all__ = [
 	'SubmissionTracker',
 	'SubmissionTrackerRound',
 	'find_first_matching_column',
+	'geodataframe_to_csv',
 	'load_points',
 	'load_points_async',
 	'parse_submission_kml',
