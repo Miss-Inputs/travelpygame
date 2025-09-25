@@ -52,7 +52,7 @@ def get_antipodes(lats: 'numpy.ndarray', lngs: 'numpy.ndarray'):
 
 def get_closest_point(
 	target_point: shapely.Point, points: Collection[shapely.Point] | shapely.MultiPoint
-):
+) -> tuple[shapely.Point, float]:
 	"""Finds the closest point and the distance to it in a collection of points. Uses geodetic distance. If multiple points are equally close, arbitrarily returns one of them.
 
 	Returns:
@@ -63,6 +63,18 @@ def get_closest_point(
 	generator = ((p, geod_distance(target_point, p)) for p in points)
 	return min(generator, key=itemgetter(1))
 
+def get_closest_point_index(
+	target_point: shapely.Point, points: Collection[shapely.Point] | shapely.MultiPoint
+) -> tuple[int, float]:
+	"""Finds the index of the closest point and the distance to it in a collection of points. Uses geodetic distance. If multiple points are equally close, arbitrarily returns one of them.
+
+	Returns:
+		Point, distance in metres
+	"""
+	if isinstance(points, shapely.MultiPoint):
+		points = list(points.geoms)
+	generator = ((i, geod_distance(target_point, p)) for i, p in enumerate(points))
+	return min(generator, key=itemgetter(1))
 
 def get_closest_points(
 	target_point: shapely.Point,
@@ -73,7 +85,6 @@ def get_closest_points(
 	Returns:
 		Points, distance in metres
 	"""
-	# This code kinda sucks I'm sorry
 	if isinstance(points, shapely.MultiPoint):
 		points = list(points.geoms)
 	n = len(points)
