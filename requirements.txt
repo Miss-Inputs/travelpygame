@@ -3,6 +3,7 @@ geopandas
 numpy
 pandas
 pydantic
+pyproj
 pyzstd
 shapely
 tqdm

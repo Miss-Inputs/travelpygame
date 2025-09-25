@@ -1,3 +1,17 @@
+from .distance import geod_distance, geod_distance_and_bearing, haversine_distance, wgs84_geod
+from .geo_utils import (
+	circular_mean,
+	circular_mean_points,
+	circular_mean_xy,
+	get_antipode,
+	get_antipodes,
+	get_centroid,
+	get_closest_point,
+	get_closest_points,
+	get_metric_crs,
+	get_midpoint,
+	get_poly_vertices,
+)
 from .io_utils import (
 	geodataframe_to_csv,
 	load_points,
@@ -16,6 +30,15 @@ from .kml import (
 	SubmissionTrackerRound,
 	parse_submission_kml,
 )
+from .other import (
+	format_area,
+	format_distance,
+	format_number,
+	format_ordinal,
+	format_point,
+	format_xy,
+	get_ordinal,
+)
 from .pandas_utils import find_first_matching_column
 
 __all__ = [
@@ -23,8 +46,29 @@ __all__ = [
 	'Placemark',
 	'SubmissionTracker',
 	'SubmissionTrackerRound',
+	'circular_mean',
+	'circular_mean_points',
+	'circular_mean_xy',
 	'find_first_matching_column',
+	'format_area',
+	'format_distance',
+	'format_number',
+	'format_ordinal',
+	'format_point',
+	'format_xy',
+	'geod_distance',
+	'geod_distance_and_bearing',
 	'geodataframe_to_csv',
+	'get_antipode',
+	'get_antipodes',
+	'get_centroid',
+	'get_closest_point',
+	'get_closest_points',
+	'get_metric_crs',
+	'get_midpoint',
+	'get_ordinal',
+	'get_poly_vertices',
+	'haversine_distance',
 	'load_points',
 	'load_points_async',
 	'parse_submission_kml',
@@ -34,4 +78,5 @@ __all__ = [
 	'read_dataframe_pickle_async',
 	'read_geodataframe',
 	'read_geodataframe_async',
+	'wgs84_geod',
 ]
