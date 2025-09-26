@@ -66,6 +66,13 @@ def geod_distance(point1: 'Point', point2: 'Point') -> float:
 	return geod_distance_and_bearing(point1.y, point1.x, point2.y, point2.x)[0]
 
 
+@overload
+def haversine_distance(
+	lat1: float, lng1: float, lat2: float, lng2: float, *, radians: bool = False
+) -> float: ...
+
+
+@overload
 def haversine_distance(
 	lat1: numpy.ndarray,
 	lng1: numpy.ndarray,
@@ -73,7 +80,17 @@ def haversine_distance(
 	lng2: numpy.ndarray,
 	*,
 	radians: bool = False,
-) -> numpy.ndarray:
+) -> numpy.ndarray: ...
+
+
+def haversine_distance(
+	lat1: float | numpy.ndarray,
+	lng1: float | numpy.ndarray,
+	lat2: float | numpy.ndarray,
+	lng2: float | numpy.ndarray,
+	*,
+	radians: bool = False,
+) -> float | numpy.ndarray:
 	"""Calculates haversine distance (which TPG uses), treating the earth as a sphere.
 
 	Arguments:
@@ -97,4 +114,7 @@ def haversine_distance(
 	dlat = lat2 - lat1
 	a = (numpy.sin(dlat / 2) ** 2) + numpy.cos(lat1) * numpy.cos(lat2) * (numpy.sin(dlng / 2) ** 2)
 	c = 2 * numpy.asin(numpy.sqrt(a))
+	if isinstance(c, numpy.floating):
+		#Just to make sure nothing annoying happens elsewhere
+		c = float(c)
 	return c * r

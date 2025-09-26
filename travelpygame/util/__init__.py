@@ -40,7 +40,7 @@ from .other import (
 	format_xy,
 	get_ordinal,
 )
-from .pandas_utils import find_first_matching_column
+from .pandas_utils import find_first_matching_column, try_set_index_name_col
 
 __all__ = [
 	'KMLError',
@@ -80,5 +80,6 @@ __all__ = [
 	'read_dataframe_pickle_async',
 	'read_geodataframe',
 	'read_geodataframe_async',
+	'try_set_index_name_col',
 	'wgs84_geod',
 ]
