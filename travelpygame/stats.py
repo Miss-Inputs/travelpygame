@@ -12,7 +12,6 @@ from .util import geod_distance, get_antipode, haversine_distance
 
 logger = logging.getLogger(__name__)
 
-
 def _maximin_objective(x: numpy.ndarray, points: Collection[shapely.Point]) -> float:
 	point = shapely.Point(x)
 	return -min(geod_distance(point, p) for p in points)

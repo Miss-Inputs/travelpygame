@@ -115,6 +115,6 @@ def haversine_distance(
 	a = (numpy.sin(dlat / 2) ** 2) + numpy.cos(lat1) * numpy.cos(lat2) * (numpy.sin(dlng / 2) ** 2)
 	c = 2 * numpy.asin(numpy.sqrt(a))
 	if isinstance(c, numpy.floating):
-		#Just to make sure nothing annoying happens elsewhere
+		# Just to make sure nothing annoying happens elsewhere
 		c = float(c)
 	return c * r
