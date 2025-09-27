@@ -1,8 +1,11 @@
+import logging
 from collections.abc import Hashable, Iterable
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
 	import pandas
+
+logger = logging.getLogger(__name__)
 
 
 def find_first_matching_column(
@@ -25,5 +28,6 @@ def try_set_index_name_col[T: 'pandas.DataFrame'](df: T) -> T:
 	# TODO: Try finding the first _unique_ column name
 	try:
 		return df.set_index(name_col, verify_integrity=True)
-	except ValueError:
+	except ValueError as ex:
+		logger.info(ex)
 		return df
