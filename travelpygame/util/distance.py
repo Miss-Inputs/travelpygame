@@ -54,7 +54,7 @@ def geod_distance_and_bearing(
 	Returns:
 		(Distance in metres, heading/direction/bearing/whatever you call it from lat1,lng1 to lat2,lng2 in degrees/radians) between point A and point B. If input is an array, it will return an array for each pair of coordinates.
 	"""
-	_, bearing, dist = wgs84_geod.inv(lng1, lat1, lng2, lat2, radians=radians)
+	bearing, _, dist = wgs84_geod.inv(lng1, lat1, lng2, lat2, radians=radians)
 	if isinstance(bearing, list):
 		# y u do this
 		bearing = numpy.array(bearing)
