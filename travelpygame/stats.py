@@ -1,14 +1,15 @@
 """Various stats-related things where it didn't feel right putting them in util and I couldn't think of anywhere else to put them"""
 
 import logging
-from collections.abc import Collection
+from collections.abc import Collection, Hashable
 
 import numpy
 import shapely
+from geopandas import GeoDataFrame, GeoSeries
 from scipy.optimize import differential_evolution
 from tqdm.auto import tqdm
 
-from .util import geod_distance, get_geometry_antipode, haversine_distance
+from .util import geod_distance, get_closest_point_index, get_geometry_antipode, haversine_distance
 
 logger = logging.getLogger(__name__)
 
@@ -70,3 +71,22 @@ def find_furthest_point(
 		# Those numpy floating types are probably going to bite me in the arse later if I don't stop them propagating
 		distance = float(distance)
 	return point, distance
+
+def get_uniqueness(points: GeoSeries | GeoDataFrame):
+	"""Finds the distance of each point to the closest other point."""
+	if isinstance(points, GeoDataFrame):
+		points = points.geometry
+	
+	closest: dict[Hashable, Hashable] = {}
+	dists: dict[Hashable, float] = {}
+	with tqdm(points.items(), 'Getting uniqueness', points.size, unit='point') as t:
+		for index, point in t:
+			t.set_postfix(point=index)
+			other = points.drop(index)
+			if not isinstance(point, shapely.Point):
+				raise TypeError(f'{index} was {type(point)}, expected Point')
+			
+			closest_index, dists[index] = get_closest_point_index(point, other.to_numpy())
+			closest[index] = other.index[closest_index]
+	return closest, dists
+		
