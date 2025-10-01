@@ -63,6 +63,7 @@ def get_closest_point(
 	generator = ((p, geod_distance(target_point, p)) for p in points)
 	return min(generator, key=itemgetter(1))
 
+
 def get_closest_point_index(
 	target_point: shapely.Point, points: Collection[shapely.Point] | shapely.MultiPoint
 ) -> tuple[int, float]:
@@ -75,6 +76,7 @@ def get_closest_point_index(
 		points = list(points.geoms)
 	generator = ((i, geod_distance(target_point, p)) for i, p in enumerate(points))
 	return min(generator, key=itemgetter(1))
+
 
 def get_closest_points(
 	target_point: shapely.Point,
@@ -152,3 +154,61 @@ def circular_mean_points(points: Iterable[shapely.Point]) -> shapely.Point:
 	x, y = zip(*((a.x, a.y) for a in points), strict=True)
 	mean_x, mean_y = circular_mean_xy(x, y)
 	return shapely.Point(mean_x, mean_y)
+
+
+def geod_buffer_as_line(
+	point: shapely.Point | tuple[float, float], distance: float, segments: int = 32
+):
+	"""This will fail miserably for distances being too high and wrapping around the world… hrm."""
+	if isinstance(point, shapely.Point):
+		lat = point.y
+		lng = point.x
+	else:
+		lat, lng = point
+	azimuths = numpy.linspace(0, 360, segments)
+
+	lngs, lats, _ = wgs84_geod.fwd(
+		numpy.repeat(lng, segments),
+		numpy.repeat(lat, segments),
+		azimuths,
+		numpy.repeat(distance, segments),
+	)
+	return shapely.LineString(numpy.column_stack((lngs, lats)))
+
+
+def _geod_buffer_as_arc_poly(lat: float, lng: float, distance: float, quad_segs: int, quad: int):
+	"""Important to do things one quadrant at a time to avoid meridian nonsense, or does it"""
+	start = 90 * quad
+	end = 90 * (quad + 1)
+	azimuths = numpy.linspace(start, end, quad_segs)
+
+	lngs, lats, _ = wgs84_geod.fwd(
+		numpy.repeat(lng, quad_segs),
+		numpy.repeat(lat, quad_segs),
+		azimuths,
+		numpy.repeat(distance, quad_segs),
+	)
+	lngs = numpy.append(lngs, lng)
+	lats = numpy.append(lats, lat)
+	ring = shapely.LinearRing(numpy.column_stack([lngs, lats]))
+	return shapely.Polygon(ring)
+
+
+def geod_buffer(point: shapely.Point | tuple[float, float], distance: float, quad_segs: int = 8):
+	"""Like shapely.buffer but for geodetic distances, but it currently behaves strangely with large distances anyway. Not quite an issue of antimeridian wrapping, just ends up in the wrong place sometimes…"""
+	if isinstance(point, shapely.Point):
+		lat = point.y
+		lng = point.x
+	else:
+		lat, lng = point
+
+	quadrants = [_geod_buffer_as_arc_poly(lat, lng, distance, quad_segs, i) for i in range(4)]
+	return shapely.MultiPolygon(quadrants)
+
+
+def geod_buffer_line(line: shapely.LineString, distance: float, quad_segs: int = 8):
+	# TODO: Also need to buffer segments in between coords if distance > space between coords, or else this won't work and will return multipolygon (which will fail the assert) so this wouldn't work for now
+	buffers = [geod_buffer((x, y), distance, quad_segs) for x, y in line.coords]
+	joined = shapely.union_all(buffers)
+	assert isinstance(joined, shapely.Polygon)
+	return joined
