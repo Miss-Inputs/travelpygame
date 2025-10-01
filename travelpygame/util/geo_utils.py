@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any
 import numpy
 import pyproj
 import shapely
+from geopandas import GeoSeries
 from shapely.ops import transform
 
 from .distance import geod_distance, geod_distance_and_bearing, wgs84_geod
@@ -41,11 +42,12 @@ def get_antipode(lat: float, lng: float) -> tuple[float, float]:
 		antilng -= 360
 	return antilat, antilng
 
+
 def get_geometry_antipode[T: 'BaseGeometry'](g: T) -> T:
 	if isinstance(g, shapely.Point):
 		antilat, antilng = get_antipode(g.y, g.x)
 		return shapely.Point(antilng, antilat)
-	return transform(get_antipodes, g) # pyright: ignore[reportArgumentType] #The type hint is wrong, transform works with arrays just fine
+	return transform(get_antipodes, g)  # pyright: ignore[reportArgumentType] #The type hint is wrong, transform works with arrays just fine
 
 
 def get_antipodes(lats: 'numpy.ndarray', lngs: 'numpy.ndarray'):
@@ -54,6 +56,24 @@ def get_antipodes(lats: 'numpy.ndarray', lngs: 'numpy.ndarray'):
 	antilng = lngs + 180
 	antilng[antilng > 180] -= 360
 	return antilat, antilng
+
+
+def get_point_antipodes(points: Iterable[shapely.Point] | GeoSeries):
+	"""Vectorized version of get_geometry_antipodes"""
+	if isinstance(points, GeoSeries):
+		lats = points.y.to_numpy()
+		lngs = points.x.to_numpy()
+	elif isinstance(points, (numpy.ndarray, list, tuple)):
+		lats = shapely.get_y(points)
+		lngs = shapely.get_x(points)
+	else:
+		lats_tuple, lngs_tuple = zip(((point.y, point.x) for point in points), strict=True)
+		lats = numpy.asarray(lats_tuple)
+		lngs = numpy.asarray(lngs_tuple)
+	antilats, antilngs = get_antipodes(lats, lngs)
+	antipoints = shapely.points(antilngs, antilats)
+	assert isinstance(antipoints, numpy.ndarray), f'antipoints is {type(antipoints)}'
+	return antipoints
 
 
 def get_closest_point(

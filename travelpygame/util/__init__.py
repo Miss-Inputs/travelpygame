@@ -13,6 +13,7 @@ from .geo_utils import (
 	get_geometry_antipode,
 	get_metric_crs,
 	get_midpoint,
+	get_point_antipodes,
 	get_poly_vertices,
 )
 from .io_utils import (
@@ -73,6 +74,7 @@ __all__ = [
 	'get_metric_crs',
 	'get_midpoint',
 	'get_ordinal',
+	'get_point_antipodes',
 	'get_poly_vertices',
 	'haversine_distance',
 	'load_points',
