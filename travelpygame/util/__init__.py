@@ -1,5 +1,6 @@
 from .distance import geod_distance, geod_distance_and_bearing, haversine_distance, wgs84_geod
 from .geo_utils import (
+	apply_transformed,
 	circular_mean,
 	circular_mean_points,
 	circular_mean_xy,
@@ -9,6 +10,7 @@ from .geo_utils import (
 	get_closest_point,
 	get_closest_point_index,
 	get_closest_points,
+	get_geometry_antipode,
 	get_metric_crs,
 	get_midpoint,
 	get_poly_vertices,
@@ -47,6 +49,7 @@ __all__ = [
 	'Placemark',
 	'SubmissionTracker',
 	'SubmissionTrackerRound',
+	'apply_transformed',
 	'circular_mean',
 	'circular_mean_points',
 	'circular_mean_xy',
@@ -66,6 +69,7 @@ __all__ = [
 	'get_closest_point',
 	'get_closest_point_index',
 	'get_closest_points',
+	'get_geometry_antipode',
 	'get_metric_crs',
 	'get_midpoint',
 	'get_ordinal',

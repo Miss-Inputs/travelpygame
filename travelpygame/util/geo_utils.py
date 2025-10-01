@@ -1,4 +1,4 @@
-from collections.abc import Collection, Iterable, Sequence
+from collections.abc import Callable, Collection, Iterable, Sequence
 from functools import partial
 from itertools import chain
 from operator import itemgetter
@@ -34,12 +34,18 @@ def get_midpoint(point_a: shapely.Point, point_b: shapely.Point):
 	return shapely.Point(lng, lat)
 
 
-def get_antipode(lat: float, lng: float):
+def get_antipode(lat: float, lng: float) -> tuple[float, float]:
 	antilat = -lat
 	antilng = lng + 180
 	if antilng > 180:
 		antilng -= 360
 	return antilat, antilng
+
+def get_geometry_antipode[T: 'BaseGeometry'](g: T) -> T:
+	if isinstance(g, shapely.Point):
+		antilat, antilng = get_antipode(g.y, g.x)
+		return shapely.Point(antilng, antilat)
+	return transform(get_antipodes, g) # pyright: ignore[reportArgumentType] #The type hint is wrong, transform works with arrays just fine
 
 
 def get_antipodes(lats: 'numpy.ndarray', lngs: 'numpy.ndarray'):
@@ -98,22 +104,29 @@ def get_closest_points(
 	return [point for i, point in enumerate(points) if distances[i] == shortest], shortest
 
 
-def get_metric_crs(g: 'BaseGeometry'):
-	# It would be more ideal if we could use geopandas estimate_utm_crs, but is it worth creating a temporary GeoSeries for that…
+def get_metric_crs(g: 'BaseGeometry') -> pyproj.CRS:
+	"""Returns a CRS that uses metres as its unit and that can be used with a particular geometry."""
+	# It would be more ideal if we could use geopandas estimate_utm_crs, but is it worth creating a temporary GeoSeries for that… and also would it return the same sort of result
 	point = g if isinstance(g, shapely.Point) else g.representative_point()
 	return pyproj.CRS(
 		f'+proj=aeqd +lat_0={point.y} +lon_0={point.x} +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs'
 	)
 
 
-def get_centroid(g: 'BaseGeometry', crs: Any = None):
-	"""Gets the centroid of some points in WGS84 properly, accounting for projection by converting to a different CRS instead."""
+def apply_transformed[T: 'BaseGeometry'](
+	func: Callable[..., T], g: 'BaseGeometry', crs: Any = None, *args, **kwargs
+) -> T:
 	if not crs:
 		crs = get_metric_crs(g)
 	transformer = pyproj.Transformer.from_crs('WGS84', crs, always_xy=True)
 	projected = transform(transformer.transform, g)
-	centroid = projected.centroid
-	return transform(partial(transformer.transform, direction='inverse'), centroid)
+	result = func(projected, *args, **kwargs)
+	return transform(partial(transformer.transform, direction='inverse'), result)
+
+
+def get_centroid(g: 'BaseGeometry', crs: Any = None) -> shapely.Point:
+	"""Gets the centroid of some points in WGS84 properly, accounting for projection by converting to a different CRS instead."""
+	return apply_transformed(shapely.centroid, g, crs)
 
 
 def circular_mean(angles: Sequence[float] | numpy.ndarray) -> float:

@@ -8,7 +8,7 @@ import shapely
 from scipy.optimize import differential_evolution
 from tqdm.auto import tqdm
 
-from .util import geod_distance, get_antipode, haversine_distance
+from .util import geod_distance, get_geometry_antipode, haversine_distance
 
 logger = logging.getLogger(__name__)
 
@@ -24,8 +24,7 @@ def _maximin_haversine_objective(x: numpy.ndarray, points: Collection[shapely.Po
 
 def _find_furthest_point_single(points: Collection[shapely.Point]):
 	point = next(iter(points))
-	anti_lat, anti_lng = get_antipode(point.y, point.x)
-	antipode = shapely.Point(anti_lng, anti_lat)
+	antipode = get_geometry_antipode(point)
 	# Can't be bothered remembering the _exact_ circumference of the earth, maybe I should to speed things up whoops
 	return antipode, geod_distance(point, antipode)
 
