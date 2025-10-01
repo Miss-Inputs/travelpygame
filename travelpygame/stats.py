@@ -29,11 +29,12 @@ def _find_furthest_point_single(points: Collection[shapely.Point]):
 	return antipode, geod_distance(point, antipode)
 
 
-def find_furthest_point_via_optimization(
+def find_furthest_point(
 	points: Collection[shapely.Point],
 	initial: shapely.Point | None = None,
 	max_iter: int = 1_000,
 	pop_size: int = 20,
+	tolerance: float = 1e-7,
 	*,
 	use_tqdm: bool = True,
 	use_haversine: bool = False,
@@ -45,7 +46,6 @@ def find_furthest_point_via_optimization(
 	with tqdm(
 		desc='Differentially evolving', total=(max_iter + 1) * pop_size * 2, disable=not use_tqdm
 	) as t:
-		# total should be actually (max_iter + 1) * popsize * 2 but eh I'll fiddle with that later
 		def callback(*_):
 			# If you just pass t.update to the callback= argument it'll just stop since t.update() returns True yippeeeee
 			t.update()
@@ -57,8 +57,8 @@ def find_furthest_point_via_optimization(
 			args=(points,),
 			x0=numpy.asarray([initial.x, initial.y]) if initial else None,
 			maxiter=max_iter,
-			mutation=(0.5, 2.0),
-			tol=1e-7,  # should probably be a argument
+			mutation=(0.5, 1.5),
+			tol=tolerance,
 			callback=callback,
 		)
 
