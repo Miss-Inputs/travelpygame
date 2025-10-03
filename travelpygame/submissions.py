@@ -130,7 +130,17 @@ async def get_main_tpg_rounds_with_path(
 
 
 def _convert_submission_from_tracker(sub: Placemark) -> Submission:
-	extra = {'description': sub.description, 'style': sub.style}
+	extra = {'description': sub.description}
+	if sub.style:
+		style_match = re.match(r'#(icon-.+?)-(.+?)-(.+)', sub.style)
+		if style_match is None:
+			extra['style'] = sub.style
+		else:
+			# Mind you, this is not the actual <Icon> tag in the thing, I'm not sure if that would be more useful
+			extra['icon'] = style_match[1]
+			extra['colour'] = style_match[2]
+			extra['style'] = style_match[3]  # labelson, nodesc, etc
+
 	return Submission(
 		name=sub.name,
 		latitude=sub.point.y,
