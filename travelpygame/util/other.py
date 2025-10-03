@@ -4,13 +4,17 @@ if TYPE_CHECKING:
 	from shapely import Point
 
 
-def format_xy(x: float, y: float) -> str:
+def format_xy(x: float, y: float, decimal_places: int | None = 6) -> str:
+	"""Formats x and y coordinates. 6 decimal places should be more than enough for anybody, see also: https://xkcd.com/2170/"""
 	# This could potentially have an argument for using that weird northing/easting format instead of decimal degrees
+	if decimal_places:
+		return f'{format_number(y, decimal_places)}, {format_number(x, decimal_places)}'
 	return f'{y}, {x}'
 
 
-def format_point(p: 'Point') -> str:
-	return format_xy(p.x, p.y)
+def format_point(p: 'Point', decimal_places: int | None = 6) -> str:
+	"""Formats point geometries more nicely than builtin WKT representation. 6 decimal places should be more than enough for anybody, see also: https://xkcd.com/2170/"""
+	return format_xy(p.x, p.y, decimal_places)
 
 
 def get_ordinal(n: int) -> str:
