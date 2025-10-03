@@ -1,6 +1,7 @@
 """API used by the new site, https://travelpicsgame.com"""
 
 from datetime import datetime
+from typing import Literal
 
 from aiohttp import ClientSession
 from pydantic import BaseModel, Field, TypeAdapter
@@ -22,6 +23,8 @@ class TPGRound(BaseModel, extra='forbid'):
 	start_timestamp: datetime | None
 	end_timestamp: datetime | None
 	season: int
+	game: Literal[1]
+	"""?"""
 
 
 _round_list_adapter = TypeAdapter(list[TPGRound])
