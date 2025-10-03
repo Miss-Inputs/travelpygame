@@ -1,6 +1,6 @@
 from .new_pic_eval import find_if_new_pics_better, load_points_or_rounds
 from .random_points import random_point_in_bbox, random_point_in_poly, random_points_in_poly
-from .scoring import custom_tpg_score, tpg_score
+from .scoring import make_leaderboards, score_round
 from .stats import find_furthest_point, get_uniqueness
 from .submissions import (
 	Round,
@@ -24,7 +24,6 @@ __all__ = [
 	'Round',
 	'Submission',
 	'convert_submission_tracker',
-	'custom_tpg_score',
 	'find_furthest_point',
 	'find_if_new_pics_better',
 	'geodataframe_to_csv',
@@ -36,11 +35,12 @@ __all__ = [
 	'load_points_or_rounds',
 	'load_rounds',
 	'load_rounds_async',
+	'make_leaderboards',
 	'random_point_in_bbox',
 	'random_point_in_poly',
 	'random_points_in_poly',
 	'read_dataframe',
 	'read_dataframe_async',
 	'rounds_to_json',
-	'tpg_score',
+	'score_round',
 ]

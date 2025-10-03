@@ -13,6 +13,7 @@ from .util import geod_distance, get_closest_point_index, get_geometry_antipode,
 
 logger = logging.getLogger(__name__)
 
+
 def _maximin_objective(x: numpy.ndarray, points: Collection[shapely.Point]) -> float:
 	point = shapely.Point(x)
 	return -min(geod_distance(point, p) for p in points)
@@ -47,6 +48,7 @@ def find_furthest_point(
 	with tqdm(
 		desc='Differentially evolving', total=(max_iter + 1) * pop_size * 2, disable=not use_tqdm
 	) as t:
+
 		def callback(*_):
 			# If you just pass t.update to the callback= argument it'll just stop since t.update() returns True yippeeeee
 			t.update()
@@ -72,11 +74,12 @@ def find_furthest_point(
 		distance = float(distance)
 	return point, distance
 
+
 def get_uniqueness(points: GeoSeries | GeoDataFrame):
 	"""Finds the distance of each point to the closest other point."""
 	if isinstance(points, GeoDataFrame):
 		points = points.geometry
-	
+
 	closest: dict[Hashable, Hashable] = {}
 	dists: dict[Hashable, float] = {}
 	with tqdm(points.items(), 'Getting uniqueness', points.size, unit='point') as t:
@@ -85,8 +88,7 @@ def get_uniqueness(points: GeoSeries | GeoDataFrame):
 			other = points.drop(index)
 			if not isinstance(point, shapely.Point):
 				raise TypeError(f'{index} was {type(point)}, expected Point')
-			
+
 			closest_index, dists[index] = get_closest_point_index(point, other.to_numpy())
 			closest[index] = other.index[closest_index]
 	return closest, dists
-		

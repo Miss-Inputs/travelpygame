@@ -29,6 +29,13 @@ class Submission(BaseModel, extra='allow'):
 	is_tie: bool
 	"""Whether this submission should be considered to be a tie with other pics nearby that also have is_tie = True."""
 
+	score: float | None = None
+	"""Score for this submission, or None if score is not calculated yet."""
+	rank: int | None = None
+	"""Placement for this submission, starting at 1 for first place and 2 for second, etc, or None if score is not calculated yet."""
+	distance: float | None = None
+	"""Distance for this submission in metres from the target, or None if this is not calculated yet."""
+
 
 class TPGType(StrEnum):
 	Normal = 'normal'
@@ -36,7 +43,9 @@ class TPGType(StrEnum):
 	# Anything else like multi (increasing) or line once I implement stuff like that
 
 
-class Round(BaseModel, extra='allow'):
+class RoundInfo(BaseModel, extra='allow'):
+	"""I really am bad at naming things. This is Round but without the submissions"""
+
 	name: str | None
 	"""Round name, if applicable."""
 	type: TPGType = TPGType.Normal
@@ -47,6 +56,9 @@ class Round(BaseModel, extra='allow'):
 	"""Country code, if applicable/known beforehand."""
 	latitude: float
 	longitude: float
+
+
+class Round(RoundInfo):
 	submissions: list[Submission]
 
 
@@ -161,7 +173,7 @@ def _find_season(season_starts: list[int], round_number: int) -> int:
 
 
 def convert_submission_tracker(
-	tracker: Path | Sequence[Path] | SubmissionTracker, season: int | list[int] | None = None
+	tracker: Path | Sequence[Path] | SubmissionTracker, start_round: int=1, season: int | list[int] | None = None
 ) -> list[Round]:
 	"""Converts a submission tracker (paths to .kml file(s), or a SubmissionTracker already parsed from such) to this more consistent format.
 
@@ -172,9 +184,10 @@ def convert_submission_tracker(
 		tracker = parse_submission_kml(tracker)
 
 	rounds: list[Round] = []
-	for i, tracker_round in enumerate(tracker.rounds, 1):
+	for i, tracker_round in enumerate(tracker.rounds, start_round):
 		round_season = _find_season(season, i) if isinstance(season, list) else season
 		# TODO: Any scenario where is_tie would be considered True, eventually we might need to implement that
+		# TODO: Ensure that there are no duplicate names
 		subs = [_convert_submission_from_tracker(sub) for sub in tracker_round.submissions]
 		rounds.append(
 			Round(
