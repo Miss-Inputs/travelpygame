@@ -63,6 +63,10 @@ class RoundInfo(BaseModel, extra='allow'):
 class Round(RoundInfo):
 	submissions: list[Submission]
 
+	@property
+	def is_scored(self) -> bool:
+		return all(sub.score is not None for sub in self.submissions)
+
 
 def _convert_submission(
 	sub: tpg_api.TPGSubmission, players: dict[str, tpg_api.TPGPlayer]

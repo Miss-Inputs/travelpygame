@@ -1,5 +1,6 @@
 from collections import Counter, defaultdict
 from collections.abc import Collection, Mapping
+from dataclasses import dataclass
 from enum import IntEnum
 from operator import attrgetter
 from typing import TYPE_CHECKING
@@ -12,66 +13,86 @@ from travelpygame.util.distance import geod_distance_and_bearing, haversine_dist
 if TYPE_CHECKING:
 	from .submissions import Round
 
+@dataclass
+class ScoringOptions:
+	"""Different ways to score TPG. This is not an exhaustive set of configurations, but it's what we use at the moment"""
 
-def tpg_score(distances: 'pandas.Series', *, allow_negative: bool = False):
-	"""
-	Computes the score for a whole round of TPG. Note: Not complete yet, this does not take ties into account.
+	fivek_flat_score: float | None
+	"""If not None, 5Ks have a constant score of this"""
+	fivek_bonus: float | None
+	"""If not None, add this amount to the score of any submission which is a 5K (note that this would be in conjunction with rank_bonus)"""
+	rank_bonuses: dict[int, float] | None
+	"""If not none, add amounts to the score of players receiving a certain rank, e.g. main TPG uses {1: 3000, 2: 2000, 1: 1000}"""
+	antipode_5k_flat_score: float | None
+	"""If not None, antipode 5Ks have a constant score of this"""
+	world_distance_km: float = 20_000
+	"""Maximum distance (size of what is considered the entire world), usually simplified as 20,000 for world TPG or 5,000 for most regional TPGs"""
+	round_to: int | None = 2
+	"""Round score to this many decimal places, or None to not do that"""
+	distance_divisor: float | None = None
+	"""If not None, divide distance by this, and then subtract from (world_distance_km / 4) (this is basically just for main TPG)"""
+	clip_negative: bool = True
+	"""Sets negative distance scores to 0, you probably want this in regional TPGs to be nice to players who are outside your region but submit anyway for the love of the game (so they can get points from rank instead)"""
+	average_distance_and_rank: bool = True
+	"""If true, score is (distance score + rank score) / 2, if false (as with main TPG), just add the two score parts together"""
 
-	Arguments:
-		distances: Distances in kilometres for each round.
-		allow_negative: Allow distance scores to be negative, if false (default) give a score of 0 if distance is greater than 20_000km, which is impossible except for exact antipodes by a few km, but just for completeness/symmetry with custom_tpg_score
-	"""
-	distance_scores = 0.25 * (20_000 - distances)
-	if not allow_negative:
-		distance_scores = distance_scores.clip(0)
 
-	distance_ranks = distances.rank(method='min', ascending=True)
-	players_beaten = distances.size - distances.rank(method='max', ascending=True)
-	players_beaten_scores = 5000 * (players_beaten / (distances.size - 1))
-	scores = distance_scores + players_beaten_scores
-	bonus = distance_ranks.map({1: 3000, 2: 2000, 3: 1000})
-	# TODO: Should actually just pass in the fivek column
-	bonus.loc[distances <= 0.1] = 5000
-	scores += bonus.fillna(0)
-	scores.loc[distances >= 19_995] = 5000  # Antipode 5K
-	for _, group in scores.groupby(distance_ranks, sort=False):
-		# where distance is tied, all players in that tie receive the average of what the points would be
-		scores.loc[group.index] = group.mean()
-	return scores.round(2)
+main_tpg_scoring = ScoringOptions(
+	None,
+	2000,
+	{1: 3000, 2: 2000, 3: 1000},
+	10_000,
+	distance_divisor=4.003006,
+	average_distance_and_rank=False,
+)
+
 
 def score_distances(
 	distances: pandas.Series,
 	is_5k: pandas.Series,
-	world_distance_km: float = 5_000.0,
-	fivek_score: float | None = 7_500.0,
-	*,
-	clip_negative: bool = True,
-	round_to: int | None = 2,
+	is_antipode_5k: pandas.Series,
+	options: ScoringOptions,
 ):
-	# TODO: Take into account antipode 5Ks and ties
 	n = distances.size
-	world_distance = world_distance_km * 1_000
-	distance_scores = (world_distance - distances) / 1_000
-	if clip_negative:
+
+	if options.distance_divisor:
+		distance_scores = (options.world_distance_km / 4) - (
+			(distances / 1_000) / options.distance_divisor
+		)
+	else:
+		world_distance = options.world_distance_km * 1_000
+		distance_scores = (world_distance - distances) / 1_000
+	if options.clip_negative:
 		distance_scores = distance_scores.clip(0)
 
 	players_beaten = n - distances.rank(method='max', ascending=True)
 	players_beaten_scores = 5000 * (players_beaten / (n - 1))
-	scores = (distance_scores + players_beaten_scores) / 2
-	if fivek_score:
-		scores[is_5k] = fivek_score
-	return scores if round_to is None else scores.round(round_to)
+
+	scores = distance_scores + players_beaten_scores
+	if options.average_distance_and_rank:
+		scores /= 2
+
+	if options.rank_bonuses:
+		for rank, bonus in options.rank_bonuses.items():
+			scores.iloc[rank + 1] += bonus
+
+	if options.fivek_flat_score is not None:
+		scores[is_5k] = options.fivek_flat_score
+	elif options.fivek_bonus is not None:
+		scores[is_5k] += options.fivek_bonus
+	if options.antipode_5k_flat_score is not None:
+		scores[is_antipode_5k] = options.antipode_5k_flat_score
+	return scores if options.round_to is None else scores.round(options.round_to)
 
 
 def score_round(
 	round_: 'Round',
-	world_distance: float = 5_000.0,
-	fivek_score: float | None = 7_500.0,
+	options: ScoringOptions,
 	fivek_threshold: float | None = 0.1,
 	*,
 	use_haversine: bool = True,
-	clip_negative: bool = True,
 ) -> 'Round':
+	# TODO: Take into account ties (all players within a group of is_tie have their scores averaged out)
 	n = len(round_.submissions)
 	subs = pandas.DataFrame([s.model_dump() for s in round_.submissions])
 
@@ -80,7 +101,7 @@ def score_round(
 	target_lat = numpy.repeat(round_.latitude, n)
 	target_lng = numpy.repeat(round_.longitude, n)
 	if subs['distance'].hasnans:
-		#We don't have to recalc distance if we somehow have distance (but not score) for every submission, but if any of them don't then we need to recalc anyway
+		# We don't have to recalc distance if we somehow have distance (but not score) for every submission, but if any of them don't then we need to recalc anyway
 		if use_haversine:
 			distances = haversine_distance(lats, lngs, target_lat, target_lng)
 			# TODO: Option to calc geod distance/bearing anyway, just for funsies
@@ -92,9 +113,8 @@ def score_round(
 		within_threshold = subs['distance'] <= fivek_threshold
 		subs['is_5k'] = subs['is_5k'].astype('boolean').fillna(within_threshold)
 
-	scores = score_distances(
-		subs['distance'], subs['is_5k'], world_distance, fivek_score, clip_negative=clip_negative
-	)
+	is_antipode_5k = subs['is_antipode_5k'].astype('boolean').fillna(value=False)
+	scores = score_distances(subs['distance'], subs['is_5k'], is_antipode_5k, options)
 	ranks = scores.rank(ascending=False).astype(int)
 	scored_subs = [
 		s.model_copy(
