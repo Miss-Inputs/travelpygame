@@ -101,7 +101,7 @@ def simulate_existing_rounds(
 	strategy: SimulatedStrategy = SimulatedStrategy.Closest,
 	*,
 	use_haversine: bool = True,
-) -> list[Round]:
+) -> Simulation:
 	pics = {
 		player: shapely.points([(lng, lat) for lat, lng in latlngs]).tolist()
 		for player, latlngs in get_submissions_per_user(rounds).items()
@@ -111,6 +111,4 @@ def simulate_existing_rounds(
 	}
 	scoring = scoring or main_tpg_scoring
 	order = {r.name or f'Round {r.number}': r.number for r in rounds}
-	return Simulation(
-		targets, order, pics, scoring, strategy, use_haversine=use_haversine
-	).simulate_rounds()
+	return Simulation(targets, order, pics, scoring, strategy, use_haversine=use_haversine)
