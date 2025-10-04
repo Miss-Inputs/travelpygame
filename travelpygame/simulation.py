@@ -1,6 +1,7 @@
 """Functions to simulate TPG seasons, playing out rounds as though everyone was there to submit their best pic."""
 
 import logging
+import random
 from collections.abc import Collection, Sequence
 from dataclasses import dataclass
 from enum import Enum, auto
@@ -22,6 +23,7 @@ class SimulatedStrategy(Enum):
 	"""Simulated players will choose their closest pic. This is the sensible option."""
 	Furthest = auto()
 	"""Simulated players will choose their furthest away pic, for whatever reason."""
+	Random = auto()
 
 
 @dataclass
@@ -39,15 +41,24 @@ class Simulation:
 	def simulate_round(self, name: str, number: int, target: Point) -> Round:
 		submissions: list[Submission] = []
 		for player, pics in self.player_pics.items():
-			best_index, distance = get_best_pic(
-				pics,
-				target,
-				use_haversine=self.use_haversine,
-				reverse=self.strategy == SimulatedStrategy.Furthest,
-			)
-			desc = best_index if isinstance(pics, GeoSeries) else None
-			point = pics[best_index]
-			assert isinstance(point, Point), f'point was {type(point)}, expected Point'
+			if self.strategy == SimulatedStrategy.Random:
+				if isinstance(pics, GeoSeries):
+					desc, point = next(pics.sample(1).items())
+					assert isinstance(point, Point), f'point was {type(point)}, expected Point'
+				else:
+					desc = None
+					point = random.choice(pics)
+				distance = None
+			else:
+				best_index, distance = get_best_pic(
+					pics,
+					target,
+					use_haversine=self.use_haversine,
+					reverse=self.strategy == SimulatedStrategy.Furthest,
+				)
+				desc = best_index if isinstance(pics, GeoSeries) else None
+				point = pics[best_index]
+				assert isinstance(point, Point), f'point was {type(point)}, expected Point'
 
 			submissions.append(
 				Submission(
