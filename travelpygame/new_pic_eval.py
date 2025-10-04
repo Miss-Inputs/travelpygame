@@ -12,6 +12,7 @@ from geopandas import GeoDataFrame, GeoSeries
 from shapely import Point
 from tqdm.auto import tqdm
 
+from .tpg_data import load_rounds
 from .util.distance import geod_distance, geod_distance_and_bearing, haversine_distance
 from .util.io_utils import load_points
 from .util.kml import parse_submission_kml
@@ -125,11 +126,19 @@ def get_worst_point(pics: PointSet, targets: PointSet, *, use_haversine: bool = 
 
 
 def _load_points_or_rounds_single(path: Path):
-	if path.suffix[1:].lower() in {'kml', 'kmz'}:
+	ext = path.suffix[1:].lower()
+	if ext in {'kml', 'kmz'}:
 		# It is assumed to be something exported from the submission tracker
 		tracker = parse_submission_kml(path)
 		return geopandas.GeoDataFrame(
 			[{'name': r.name, 'geometry': r.target} for r in tracker.rounds],
+			geometry='geometry',
+			crs='wgs84',
+		)
+	if ext == 'json':
+		rounds = load_rounds(path)
+		return geopandas.GeoDataFrame(
+			[{'name': r.name, 'geometry': Point(r.longitude, r.latitude)} for r in rounds],
 			geometry='geometry',
 			crs='wgs84',
 		)
