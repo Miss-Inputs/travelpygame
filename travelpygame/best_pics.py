@@ -1,5 +1,4 @@
 from collections.abc import Callable, Collection
-from operator import itemgetter
 
 import numpy
 from geopandas import GeoDataFrame, GeoSeries
@@ -10,7 +9,7 @@ from .util.distance import geod_distance_and_bearing, haversine_distance
 PointSet = Collection[Point] | numpy.ndarray | GeoSeries | GeoDataFrame
 
 
-def _geod_distance(lat: float, lng: float, target_lat: float, target_lng: float) -> float:
+def _geod_distance(lat: numpy.ndarray, lng: numpy.ndarray, target_lat: numpy.ndarray, target_lng: numpy.ndarray) -> numpy.ndarray:
 	return geod_distance_and_bearing(lat, lng, target_lat, target_lng)[0]
 
 
@@ -49,14 +48,13 @@ def _get_best_pic_inner(
 	lngs: numpy.ndarray,
 	target_lat: float,
 	target_lng: float,
-	dist_func: Callable[[float, float, float, float], float],
+	dist_func: Callable[[numpy.ndarray, numpy.ndarray, numpy.ndarray, numpy.ndarray], numpy.ndarray],
 ) -> tuple[int, float]:
-	"""Uses a generator, which I _think_ might be faster than using vectorized functions to compute all distances to target_lat/target_lng at  once, but I'm not sure and haven't bothered benchmarking or anything"""
-	generator = (
-		(i, dist_func(lat, lng, target_lat, target_lng))
-		for i, (lat, lng) in enumerate(iterable=zip(lats, lngs, strict=True))
-	)
-	return min(generator, key=itemgetter(1))
+	target_lats = numpy.repeat(target_lat, lats.size)
+	target_lngs = numpy.repeat(target_lng, lngs.size)
+	distances = dist_func(lats, lngs, target_lats, target_lngs)
+	index = numpy.argmin(distances)
+	return index.item(), distances[index].item()
 
 
 def get_best_pic(pics: PointSet, target: 'Point', *, use_haversine: bool = False):
