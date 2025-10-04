@@ -8,10 +8,10 @@ from typing import TYPE_CHECKING
 import numpy
 import pandas
 
-from travelpygame.util.distance import geod_distance_and_bearing, haversine_distance
+from .util.distance import geod_distance_and_bearing, haversine_distance
 
 if TYPE_CHECKING:
-	from .submissions import Round
+	from .tpg_data import Round
 
 @dataclass
 class ScoringOptions:
