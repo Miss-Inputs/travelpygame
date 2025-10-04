@@ -16,13 +16,11 @@ from .tpg_data import Round, Submission, get_submissions_per_user
 logger = logging.getLogger(__name__)
 
 
-def _sort_by_number(r: Round):
-	return r.number
-
-
 @dataclass
 class Simulation:
 	rounds: dict[str, Point]
+	round_order: dict[str, int] | None
+	"""Order for each round, if desired, effectively sets the round number (i.e. lower numbers first)"""
 	player_pics: dict[str, GeoSeries | Sequence[Point]]
 	"""Locations for each user."""
 	scoring: ScoringOptions
@@ -52,21 +50,23 @@ class Simulation:
 		return score_round(r, self.scoring, use_haversine=self.use_haversine)
 
 	def simulate_rounds(self) -> list[Round]:
+		items = self.rounds.items()
+		round_order = self.round_order
+		if round_order:
+			items = [
+				kv
+				for _, kv in sorted(
+					enumerate(items), key=lambda i_kv: round_order.get(i_kv[1][0], i_kv[0])
+				)
+			]
 		if self.use_tqdm:
 			rounds = []
-			with tqdm(self.rounds.items(), 'Simulating rounds', unit='round') as t:
+			with tqdm(items, 'Simulating rounds', unit='round') as t:
 				for i, (name, target) in enumerate(t):
 					t.set_postfix(round=name)
 					rounds.append(self.simulate_round(name, i, target))
-			rounds.sort(key=_sort_by_number)
 			return rounds
-		return sorted(
-			(
-				self.simulate_round(name, i, target)
-				for i, (name, target) in enumerate(self.rounds.items())
-			),
-			key=_sort_by_number,
-		)
+		return [self.simulate_round(name, i, target) for i, (name, target) in enumerate(items, 1)]
 
 
 def simulate_existing_rounds(
@@ -80,4 +80,5 @@ def simulate_existing_rounds(
 		r.name or f'Round {r.number}': shapely.Point(r.longitude, r.latitude) for r in rounds
 	}
 	scoring = scoring or main_tpg_scoring
-	return Simulation(targets, pics, scoring, use_haversine=use_haversine).simulate_rounds()
+	order = {r.name or f'Round {r.number}': r.number for r in rounds}
+	return Simulation(targets, order, pics, scoring, use_haversine=use_haversine).simulate_rounds()
