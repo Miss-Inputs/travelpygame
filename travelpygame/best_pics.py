@@ -9,7 +9,9 @@ from .util.distance import geod_distance_and_bearing, haversine_distance
 PointSet = Collection[Point] | numpy.ndarray | GeoSeries | GeoDataFrame
 
 
-def _geod_distance(lat: numpy.ndarray, lng: numpy.ndarray, target_lat: numpy.ndarray, target_lng: numpy.ndarray) -> numpy.ndarray:
+def _geod_distance(
+	lat: numpy.ndarray, lng: numpy.ndarray, target_lat: numpy.ndarray, target_lng: numpy.ndarray
+) -> numpy.ndarray:
 	return geod_distance_and_bearing(lat, lng, target_lat, target_lng)[0]
 
 
@@ -48,17 +50,26 @@ def _get_best_pic_inner(
 	lngs: numpy.ndarray,
 	target_lat: float,
 	target_lng: float,
-	dist_func: Callable[[numpy.ndarray, numpy.ndarray, numpy.ndarray, numpy.ndarray], numpy.ndarray],
+	dist_func: Callable[
+		[numpy.ndarray, numpy.ndarray, numpy.ndarray, numpy.ndarray], numpy.ndarray
+	],
+	*,
+	reverse: bool = False,
 ) -> tuple[int, float]:
 	target_lats = numpy.repeat(target_lat, lats.size)
 	target_lngs = numpy.repeat(target_lng, lngs.size)
 	distances = dist_func(lats, lngs, target_lats, target_lngs)
-	index = numpy.argmin(distances)
+	index = distances.argmax() if reverse else distances.argmin()
 	return index.item(), distances[index].item()
 
 
-def get_best_pic(pics: PointSet, target: 'Point', *, use_haversine: bool = False):
+def get_best_pic(
+	pics: PointSet, target: 'Point', *, use_haversine: bool = False, reverse: bool = False
+):
 	"""Finds the best pic among a collection of pics. If pics is a GeoDataFrame/GeoSeries, returns the index in that object and not the numeric index.
+
+	Arguments:
+		reverse: If true, get the furthest away pic, for whatever reason.
 
 	Returns:
 		tuple (index, distance in metres)"""
@@ -67,7 +78,9 @@ def get_best_pic(pics: PointSet, target: 'Point', *, use_haversine: bool = False
 
 	lats, lngs = _to_lat_lngs(pics)
 	dist_func = haversine_distance if use_haversine else _geod_distance
-	index, distance = _get_best_pic_inner(lats, lngs, target.y, target.x, dist_func)
+	index, distance = _get_best_pic_inner(
+		lats, lngs, target.y, target.x, dist_func, reverse=reverse
+	)
 	if isinstance(pics, GeoSeries):
 		index = pics.index[index]
 	return index, distance

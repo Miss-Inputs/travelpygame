@@ -3,6 +3,7 @@
 import logging
 from collections.abc import Collection, Sequence
 from dataclasses import dataclass
+from enum import Enum, auto
 
 import shapely
 from geopandas import GeoSeries
@@ -16,6 +17,13 @@ from .tpg_data import Round, Submission, get_submissions_per_user
 logger = logging.getLogger(__name__)
 
 
+class SimulatedStrategy(Enum):
+	Closest = auto()
+	"""Simulated players will choose their closest pic. This is the sensible option."""
+	Furthest = auto()
+	"""Simulated players will choose their furthest away pic, for whatever reason."""
+
+
 @dataclass
 class Simulation:
 	rounds: dict[str, Point]
@@ -24,16 +32,23 @@ class Simulation:
 	player_pics: dict[str, GeoSeries | Sequence[Point]]
 	"""Locations for each user."""
 	scoring: ScoringOptions
+	strategy: SimulatedStrategy = SimulatedStrategy.Closest
 	use_haversine: bool = True
 	use_tqdm: bool = True
 
 	def simulate_round(self, name: str, number: int, target: Point) -> Round:
 		submissions: list[Submission] = []
 		for player, pics in self.player_pics.items():
-			best_index, distance = get_best_pic(pics, target, use_haversine=self.use_haversine)
+			best_index, distance = get_best_pic(
+				pics,
+				target,
+				use_haversine=self.use_haversine,
+				reverse=self.strategy == SimulatedStrategy.Furthest,
+			)
 			desc = best_index if isinstance(pics, GeoSeries) else None
 			point = pics[best_index]
 			assert isinstance(point, Point), f'point was {type(point)}, expected Point'
+
 			submissions.append(
 				Submission(
 					name=player,
@@ -62,7 +77,7 @@ class Simulation:
 		if self.use_tqdm:
 			rounds = []
 			with tqdm(items, 'Simulating rounds', unit='round') as t:
-				for i, (name, target) in enumerate(t):
+				for i, (name, target) in enumerate(t, 1):
 					t.set_postfix(round=name)
 					rounds.append(self.simulate_round(name, i, target))
 			return rounds
@@ -70,7 +85,11 @@ class Simulation:
 
 
 def simulate_existing_rounds(
-	rounds: Collection[Round], scoring: ScoringOptions | None = None, *, use_haversine: bool = True
+	rounds: Collection[Round],
+	scoring: ScoringOptions | None = None,
+	strategy: SimulatedStrategy = SimulatedStrategy.Closest,
+	*,
+	use_haversine: bool = True,
 ) -> list[Round]:
 	pics = {
 		player: shapely.points([(lng, lat) for lat, lng in latlngs]).tolist()
@@ -81,4 +100,6 @@ def simulate_existing_rounds(
 	}
 	scoring = scoring or main_tpg_scoring
 	order = {r.name or f'Round {r.number}': r.number for r in rounds}
-	return Simulation(targets, order, pics, scoring, use_haversine=use_haversine).simulate_rounds()
+	return Simulation(
+		targets, order, pics, scoring, strategy, use_haversine=use_haversine
+	).simulate_rounds()
