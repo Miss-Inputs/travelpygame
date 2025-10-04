@@ -1,3 +1,4 @@
+from .best_pics import get_best_pic
 from .new_pic_eval import find_if_new_pics_better, load_points_or_rounds
 from .random_points import random_point_in_bbox, random_point_in_poly, random_points_in_poly
 from .scoring import ScoringOptions, main_tpg_scoring, make_leaderboards, score_round
@@ -29,6 +30,7 @@ __all__ = [
 	'find_furthest_point',
 	'find_if_new_pics_better',
 	'geodataframe_to_csv',
+	'get_best_pic',
 	'get_main_tpg_rounds',
 	'get_main_tpg_rounds_with_path',
 	'get_submissions_per_user',

@@ -24,11 +24,13 @@ class Submission(BaseModel, extra='allow'):
 	"""WGS84 latitude of the picture."""
 	longitude: float
 	"""WGS84 longitude of the picture."""
+	description: str | None = None
+	"""Some kind of description of the picture/location if we have one."""
 	is_5k: bool | None = None
 	"""Whether this submission counted as a 5K or not, or None if unknown."""
 	is_antipode_5k: bool | None = None
 	"""Whether this submission counted as a 5K for the antipode or not."""
-	is_tie: bool
+	is_tie: bool = False
 	"""Whether this submission should be considered to be a tie with other pics nearby that also have is_tie = True."""
 
 	score: float | None = None
@@ -148,7 +150,7 @@ async def get_main_tpg_rounds_with_path(
 
 
 def _convert_submission_from_tracker(sub: Placemark) -> Submission:
-	extra = {'description': sub.description}
+	extra = {}
 	if sub.style:
 		style_match = re.match(r'#(icon-.+?)-(.+?)-(.+)', sub.style)
 		if style_match is None:
@@ -163,7 +165,7 @@ def _convert_submission_from_tracker(sub: Placemark) -> Submission:
 		name=sub.name,
 		latitude=sub.point.y,
 		longitude=sub.point.x,
-		is_tie=False,
+		description=sub.description,
 		**extra,  # pyright: ignore[reportArgumentType] #Pylance does not know how pydantic extra works, it seems
 	)
 

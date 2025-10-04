@@ -13,6 +13,7 @@ from .util.distance import geod_distance_and_bearing, haversine_distance
 if TYPE_CHECKING:
 	from .tpg_data import Round
 
+
 @dataclass
 class ScoringOptions:
 	"""Different ways to score TPG. This is not an exhaustive set of configurations, but it's what we use at the moment"""

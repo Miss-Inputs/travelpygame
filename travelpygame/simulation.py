@@ -1,0 +1,83 @@
+"""Functions to simulate TPG seasons, playing out rounds as though everyone was there to submit their best pic."""
+
+import logging
+from collections.abc import Collection, Sequence
+from dataclasses import dataclass
+
+import shapely
+from geopandas import GeoSeries
+from shapely import Point
+from tqdm.auto import tqdm
+
+from .best_pics import get_best_pic
+from .scoring import ScoringOptions, main_tpg_scoring, score_round
+from .tpg_data import Round, Submission, get_submissions_per_user
+
+logger = logging.getLogger(__name__)
+
+
+def _sort_by_number(r: Round):
+	return r.number
+
+
+@dataclass
+class Simulation:
+	rounds: dict[str, Point]
+	player_pics: dict[str, GeoSeries | Sequence[Point]]
+	"""Locations for each user."""
+	scoring: ScoringOptions
+	use_haversine: bool = True
+	use_tqdm: bool = True
+
+	def simulate_round(self, name: str, number: int, target: Point) -> Round:
+		submissions: list[Submission] = []
+		for player, pics in self.player_pics.items():
+			best_index, distance = get_best_pic(pics, target, use_haversine=self.use_haversine)
+			desc = best_index if isinstance(pics, GeoSeries) else None
+			point = pics[best_index]
+			assert isinstance(point, Point), f'point was {type(point)}, expected Point'
+			submissions.append(
+				Submission(
+					name=player,
+					latitude=point.y,
+					longitude=point.x,
+					description=desc if isinstance(desc, str) else None,
+					distance=distance,
+				)
+			)
+
+		r = Round(
+			name=name, number=number, latitude=target.y, longitude=target.x, submissions=submissions
+		)
+		return score_round(r, self.scoring, use_haversine=self.use_haversine)
+
+	def simulate_rounds(self) -> list[Round]:
+		if self.use_tqdm:
+			rounds = []
+			with tqdm(self.rounds.items(), 'Simulating rounds', unit='round') as t:
+				for i, (name, target) in enumerate(t):
+					t.set_postfix(round=name)
+					rounds.append(self.simulate_round(name, i, target))
+			rounds.sort(key=_sort_by_number)
+			return rounds
+		return sorted(
+			(
+				self.simulate_round(name, i, target)
+				for i, (name, target) in enumerate(self.rounds.items())
+			),
+			key=_sort_by_number,
+		)
+
+
+def simulate_existing_rounds(
+	rounds: Collection[Round], scoring: ScoringOptions | None = None, *, use_haversine: bool = True
+) -> list[Round]:
+	pics = {
+		player: shapely.points([(lng, lat) for lat, lng in latlngs]).tolist()
+		for player, latlngs in get_submissions_per_user(rounds).items()
+	}
+	targets = {
+		r.name or f'Round {r.number}': shapely.Point(r.longitude, r.latitude) for r in rounds
+	}
+	scoring = scoring or main_tpg_scoring
+	return Simulation(targets, pics, scoring, use_haversine=use_haversine).simulate_rounds()
