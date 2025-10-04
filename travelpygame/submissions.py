@@ -2,7 +2,8 @@
 
 import asyncio
 import re
-from collections.abc import Sequence
+from collections import defaultdict
+from collections.abc import Iterable, Sequence
 from enum import StrEnum
 from pathlib import Path
 from typing import Any
@@ -12,7 +13,8 @@ from pydantic import BaseModel, TypeAdapter
 from tqdm.auto import tqdm
 
 from travelpygame import tpg_api
-from travelpygame.util.kml import Placemark, SubmissionTracker, parse_submission_kml
+
+from .util.kml import Placemark, SubmissionTracker, parse_submission_kml
 
 
 class Submission(BaseModel, extra='allow'):
@@ -173,7 +175,9 @@ def _find_season(season_starts: list[int], round_number: int) -> int:
 
 
 def convert_submission_tracker(
-	tracker: Path | Sequence[Path] | SubmissionTracker, start_round: int=1, season: int | list[int] | None = None
+	tracker: Path | Sequence[Path] | SubmissionTracker,
+	start_round: int = 1,
+	season: int | list[int] | None = None,
 ) -> list[Round]:
 	"""Converts a submission tracker (paths to .kml file(s), or a SubmissionTracker already parsed from such) to this more consistent format.
 
@@ -220,3 +224,13 @@ def _spaces_to_tabs(m: re.Match[str]):
 def rounds_to_json(rounds: list[Round]) -> str:
 	json_bytes = round_list_adapter.dump_json(rounds, indent=2, exclude_none=True)
 	return re.sub(r'\n(\s{2,})', _spaces_to_tabs, json_bytes.decode('utf-8'))
+
+
+def get_submissions_per_user(rounds: Iterable[Round]):
+	"""Returns dict of player name -> set[(lat, lng)]"""
+	submissions: defaultdict[str, set[tuple[float, float]]] = defaultdict(set)
+
+	for r in rounds:
+		for sub in r.submissions:
+			submissions[sub.name].add((sub.latitude, sub.longitude))
+	return submissions
