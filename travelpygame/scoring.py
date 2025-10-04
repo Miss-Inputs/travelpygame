@@ -74,8 +74,9 @@ def score_distances(
 		scores /= 2
 
 	if options.rank_bonuses:
+		ranks = scores.rank(method='dense', ascending=False)
 		for rank, bonus in options.rank_bonuses.items():
-			scores.iloc[rank + 1] += bonus
+			scores[ranks == rank] += bonus
 
 	if options.fivek_flat_score is not None:
 		scores[is_5k] = options.fivek_flat_score
