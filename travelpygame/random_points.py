@@ -1,8 +1,11 @@
 from contextlib import nullcontext
 
+import geopandas
 import numpy
 import shapely
 from tqdm.auto import tqdm
+
+from .util.geo_utils import contains_any
 
 RandomSeed = (
 	numpy.random.Generator | numpy.random.BitGenerator | numpy.random.SeedSequence | int | None
@@ -22,7 +25,7 @@ def random_point_in_bbox(
 
 
 def random_point_in_poly(
-	poly: shapely.Polygon | shapely.MultiPolygon,
+	poly: shapely.Polygon | shapely.MultiPolygon | geopandas.GeoSeries | geopandas.GeoDataFrame,
 	random: RandomSeed = None,
 	*,
 	use_tqdm: bool = False,
@@ -36,22 +39,27 @@ def random_point_in_poly(
 		poly: shapely Polygon or MultiPolygon
 		random: Optionally a numpy random generator or seed, otherwise default_rng is used
 	"""
-	min_x, max_x, min_y, max_y = poly.bounds
-	shapely.prepare(poly)
+	if isinstance(poly, (geopandas.GeoDataFrame, geopandas.GeoSeries)):
+		min_x, min_y, max_x, max_y = poly.total_bounds
+	else:
+		min_x, min_y, max_x, max_y = poly.bounds
+		shapely.prepare(poly)
+
 	if not isinstance(random, numpy.random.Generator):
 		random = numpy.random.default_rng(random)
+
 	t = tqdm(**tqdm_kwargs) if use_tqdm else nullcontext()
 	with t:
 		while True:
 			if isinstance(t, tqdm):
 				t.update(1)
-			point = random_point_in_bbox(min_x, max_x, min_y, max_y, random)
-			if poly.contains_properly(point):
+			point = random_point_in_bbox(min_x, min_y, max_x, max_y, random)
+			if contains_any(poly, point):
 				return point
 
 
 def random_points_in_poly(
-	poly: shapely.Polygon | shapely.MultiPolygon,
+	poly: shapely.Polygon | shapely.MultiPolygon | geopandas.GeoSeries | geopandas.GeoDataFrame,
 	n: int,
 	random: RandomSeed = None,
 	*,
@@ -66,16 +74,20 @@ def random_points_in_poly(
 		poly: shapely Polygon or MultiPolygon
 		random: Optionally a numpy random generator or seed, otherwise default_rng is used
 	"""
-	min_x, max_x, min_y, max_y = poly.bounds
-	shapely.prepare(poly)
+	if isinstance(poly, (geopandas.GeoDataFrame, geopandas.GeoSeries)):
+		min_x, min_y, max_x, max_y = poly.total_bounds
+	else:
+		min_x, min_y, max_x, max_y = poly.bounds
+		shapely.prepare(poly)
 	if not isinstance(random, numpy.random.Generator):
 		random = numpy.random.default_rng(random)
 	t = tqdm(**tqdm_kwargs, total=n) if use_tqdm else nullcontext()
 	points: list[shapely.Point] = []
+	# TODO: Does vectorization help this?
 	with t:
 		while len(points) < n:
-			point = random_point_in_bbox(min_x, max_x, min_y, max_y, random)
-			if poly.contains_properly(point):
+			point = random_point_in_bbox(min_x, min_y, max_x, max_y, random)
+			if contains_any(poly, point):
 				if isinstance(t, tqdm):
 					t.update(1)
 				points.append(point)

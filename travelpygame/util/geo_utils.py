@@ -7,13 +7,14 @@ from typing import TYPE_CHECKING, Any
 import numpy
 import pyproj
 import shapely
-from geopandas import GeoSeries
+from geopandas import GeoDataFrame, GeoSeries
+from shapely.geometry.base import BaseGeometry
 from shapely.ops import transform
 
 from .distance import geod_distance, geod_distance_and_bearing, haversine_distance, wgs84_geod
 
 if TYPE_CHECKING:
-	from shapely.geometry.base import BaseGeometry
+	from geopandas.array import GeometryArray
 
 
 def get_poly_vertices(poly: shapely.Polygon | shapely.MultiPolygon) -> list[shapely.Point]:
@@ -242,7 +243,7 @@ def circular_mean_points(points: Iterable[shapely.Point]) -> shapely.Point:
 
 def geod_buffer_as_line(
 	point: shapely.Point | tuple[float, float], distance: float, segments: int = 32
-):
+) -> shapely.LineString:
 	"""This will fail miserably for distances being too high and wrapping around the world… hrm."""
 	if isinstance(point, shapely.Point):
 		lat = point.y
@@ -296,3 +297,19 @@ def geod_buffer_line(line: shapely.LineString, distance: float, quad_segs: int =
 	joined = shapely.union_all(buffers)
 	assert isinstance(joined, shapely.Polygon)
 	return joined
+
+
+def contains_any(
+	geo: 'GeoDataFrame | GeoSeries | GeometryArray | BaseGeometry',
+	point: shapely.Point | tuple[float, float],
+) -> bool:
+	if isinstance(geo, BaseGeometry):
+		return (
+			shapely.contains_xy(geo, point[1], point[0]).item()
+			if isinstance(point, tuple)
+			else geo.contains(point)
+		)
+	if isinstance(point, tuple):
+		point = shapely.Point(point)
+	# Unfortunately there is no contains_properly inverse
+	return geo.sindex.query(point, 'within').size > 0

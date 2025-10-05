@@ -202,12 +202,12 @@ def get_player_summary(new_rounds: Iterable[Round] | Simulation) -> pandas.DataF
 		row['worst_round'], row['worst_score'] = min(scores.items(), key=valuegetter)
 		row['total_distance'] = total_distances[name]
 		row['times_closer_than_average'] = times_above_average[name]
-		
+
 		rank_counter = Counter(ranks_by_round[name])
 		row['rounds_won'] = rank_counter[1]
 		row['rounds_podiummed'] = rank_counter[1] + rank_counter[2] + rank_counter[3]
 		row['rounds_lost'] = rank_counter[len(scores_by_round)]
-		
+
 		rows.append(row)
 	return (
 		pandas.DataFrame(rows)
