@@ -133,8 +133,9 @@ def output_geodataframe(
 	include_z: bool = False,
 	insert_before: bool = True,
 	index: bool = True,
+	force_geojson_wgs84: bool = True,
 ):
-	"""Outputs a GeoDataFrame automatically to the right format depending on the extension of `path`. `lat_col_name`, `lng_col_name`, `include_z`, `insert_before`, `index` are only used when outputting to a non-geographical format like csv/ods/etc"""
+	"""Outputs a GeoDataFrame automatically to the right format depending on the extension of `path`. `lat_col_name`, `lng_col_name`, `include_z`, `insert_before`, `index` are only used when outputting to a non-geographical format like csv/ods/etc."""
 	# TODO: I guess you might want to handle compressed extensions
 	ext = path.suffix[1:].lower()
 	if ext == 'csv':
@@ -150,6 +151,8 @@ def output_geodataframe(
 	elif ext in pickle_exts:
 		gdf.to_pickle(path)
 	else:
+		if force_geojson_wgs84 and ext == 'geojson':
+			gdf = gdf.to_crs('wgs84')
 		gdf.to_file(path)
 
 
