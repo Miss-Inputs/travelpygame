@@ -121,8 +121,11 @@ def simulate_existing_rounds(
 	return Simulation(targets, order, pics, scoring, strategy, use_haversine=use_haversine)
 
 
-def _add_submission_summary(row: dict[str, Any], sub: Submission, col_name: str, prefix: str = ''):
-	row[col_name] = sub.name
+def _add_submission_summary(
+	row: dict[str, Any], sub: Submission, col_name: str | None, prefix: str = ''
+):
+	if col_name:
+		row[col_name] = sub.name
 	row[f'{prefix}score'] = sub.score
 	row[f'{prefix}distance'] = sub.distance
 	row[f'{prefix}lat'] = sub.latitude
@@ -133,6 +136,7 @@ def _add_submission_summary(row: dict[str, Any], sub: Submission, col_name: str,
 
 def get_round_summary(
 	new_rounds: Iterable[Round] | Simulation,
+	player_name: str | None = None,
 	*,
 	include_podium: bool = True,
 	include_loser: bool = True,
@@ -163,6 +167,9 @@ def get_round_summary(
 			_add_submission_summary(row, r.submissions[2], 'bronze', 'bronze_')
 		if include_loser:
 			_add_submission_summary(row, r.submissions[-1], 'loser', 'loser_')
+		if player_name:
+			player_submission = next(s for s in r.submissions if s.name == player_name)
+			_add_submission_summary(row, player_submission, None, 'your_')
 		rows.append(row)
 	return pandas.DataFrame(rows).set_index('round')
 
