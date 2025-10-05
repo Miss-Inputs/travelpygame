@@ -9,25 +9,27 @@ from geopandas import GeoDataFrame, GeoSeries
 from scipy.optimize import differential_evolution
 from tqdm.auto import tqdm
 
-from .util import geod_distance, get_closest_point_index, get_geometry_antipode, haversine_distance
+from .util import geod_distance, get_closest_point_index, get_distances, get_geometry_antipode
 
 logger = logging.getLogger(__name__)
 
 
 def _maximin_objective(x: numpy.ndarray, points: Collection[shapely.Point]) -> float:
-	point = shapely.Point(x)
-	return -min(geod_distance(point, p) for p in points)
+	lat, lng = x
+	distances = get_distances((lat, lng), points)
+	return -distances.min()
 
 
 def _maximin_haversine_objective(x: numpy.ndarray, points: Collection[shapely.Point]) -> float:
 	lat, lng = x
-	return -min(haversine_distance(lat, lng, p.y, p.x) for p in points)
+	distances = get_distances((lat, lng), points, use_haversine=True)
+	return -distances.min()
 
 
 def _find_furthest_point_single(points: Collection[shapely.Point]):
 	point = next(iter(points))
 	antipode = get_geometry_antipode(point)
-	# Can't be bothered remembering the _exact_ circumference of the earth, maybe I should to speed things up whoops
+	# Can't be bothered remembering the _exact_ circumference of the earth, maybe I should to speed things up whoops (I guess it's probably different for haversine vs geodetic?)
 	return antipode, geod_distance(point, antipode)
 
 
