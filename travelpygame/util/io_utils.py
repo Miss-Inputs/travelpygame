@@ -78,6 +78,21 @@ async def read_geodataframe_async(path: Path) -> geopandas.GeoDataFrame:
 	return await asyncio.to_thread(read_geodataframe, path)
 
 
+def _geodataframe_to_normal_df(
+	gdf: geopandas.GeoDataFrame,
+	lat_col_name: Hashable = 'lat',
+	lng_col_name: Hashable = 'lng',
+	*,
+	include_z: bool = False,
+	insert_before: bool = True,
+):
+	df = gdf.drop(columns=gdf.active_geometry_name)
+	coords = gdf.get_coordinates(include_z=include_z)
+	a = [df, coords[coords.columns[::-1]]]  # generally we want lat before lng
+	df = pandas.concat(reversed(a) if insert_before else a, axis='columns')
+	return df.rename(columns={'x': lng_col_name, 'y': lat_col_name})
+
+
 def geodataframe_to_csv(
 	gdf: geopandas.GeoDataFrame,
 	path: Path,
@@ -89,11 +104,9 @@ def geodataframe_to_csv(
 	index: bool = True,
 ):
 	"""Outputs a GeoDataFrame to CSV with lat and lng columns, instead of outputting as a WKT string."""
-	df = gdf.drop(columns=gdf.active_geometry_name)
-	coords = gdf.get_coordinates(include_z=include_z)
-	a = [df, coords[coords.columns[::-1]]]  # generally we want lat before lng
-	df = pandas.concat(reversed(a) if insert_before else a, axis='columns')
-	df = df.rename(columns={'x': lng_col_name, 'y': lat_col_name})
+	df = _geodataframe_to_normal_df(
+		gdf, lat_col_name, lng_col_name, include_z=include_z, insert_before=insert_before
+	)
 	df.to_csv(path, index=index)
 
 
@@ -109,6 +122,35 @@ other_df_readers = {
 }
 """I don't know what these really do or if they work as expected because I don't use these file types but they exist and seem straightforward"""
 dataframe_exts = csv_exts | excel_exts | pickle_exts | other_df_readers.keys()
+
+
+def output_geodataframe(
+	gdf: geopandas.GeoDataFrame,
+	path: Path,
+	lat_col_name: Hashable = 'lat',
+	lng_col_name: Hashable = 'lng',
+	*,
+	include_z: bool = False,
+	insert_before: bool = True,
+	index: bool = True,
+):
+	"""Outputs a GeoDataFrame automatically to the right format depending on the extension of `path`. `lat_col_name`, `lng_col_name`, `include_z`, `insert_before`, `index` are only used when outputting to a non-geographical format like csv/ods/etc"""
+	# TODO: I guess you might want to handle compressed extensions
+	ext = path.suffix[1:].lower()
+	if ext == 'csv':
+		df = _geodataframe_to_normal_df(
+			gdf, lat_col_name, lng_col_name, include_z=include_z, insert_before=insert_before
+		)
+		df.to_csv(path, index=index)
+	elif ext in excel_exts:
+		df = _geodataframe_to_normal_df(
+			gdf, lat_col_name, lng_col_name, include_z=include_z, insert_before=insert_before
+		)
+		df.to_excel(path, index=index)
+	elif ext in pickle_exts:
+		gdf.to_pickle(path)
+	else:
+		gdf.to_file(path)
 
 
 def read_dataframe(
