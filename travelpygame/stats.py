@@ -94,3 +94,20 @@ def get_uniqueness(points: GeoSeries | GeoDataFrame):
 			closest_index, dists[index] = get_closest_point_index(point, other.to_numpy())
 			closest[index] = other.index[closest_index]
 	return closest, dists
+
+
+def get_uniqueness_with_groups(points: GeoDataFrame, col_name: str):
+	"""Finds the distance of each point to the closest other point out of points that do not have the same value for `col_name` as that point."""
+	closest: dict[Hashable, Hashable] = {}
+	dists: dict[Hashable, float] = {}
+	with tqdm(points.iterrows(), 'Getting uniqueness', points.size, unit='point') as t:
+		for index, row in t:
+			t.set_postfix(point=index)
+			other = points[points[col_name] != row[col_name]]
+			point = row.geometry
+			if not isinstance(point, shapely.Point):
+				raise TypeError(f'{index} was {type(point)}, expected Point')
+
+			closest_index, dists[index] = get_closest_point_index(point, other.geometry.to_numpy())
+			closest[index] = other.index[closest_index]
+	return closest, dists
