@@ -65,8 +65,7 @@ def get_point_antipodes(points: Iterable[shapely.Point] | GeoSeries):
 		lats = points.y.to_numpy()
 		lngs = points.x.to_numpy()
 	elif isinstance(points, (numpy.ndarray, list, tuple)):
-		lats = shapely.get_y(points)
-		lngs = shapely.get_x(points)
+		lngs, lats = shapely.get_coordinates(points).T
 	else:
 		lats_tuple, lngs_tuple = zip(((point.y, point.x) for point in points), strict=True)
 		lats = numpy.asarray(lats_tuple)
@@ -90,12 +89,12 @@ def get_distances(
 	use_haversine: bool = False,
 ):
 	"""Finds the distances from all points in `points` to `target_point`, in the original order of points. By default, uses geodetic distance."""
-	if isinstance(points, shapely.MultiPoint):
-		# hm I thought there was a more vectorized way to do that
-		points = list(points.geoms)
-	a = numpy.asarray([[point.y, point.x] for point in points])
-	lats = a[:, 0]
-	lngs = a[:, 1]
+	# if isinstance(points, shapely.MultiPoint):
+	# 	# hm I thought there was a more vectorized way to get lats/lngs inside a multipoint
+	# 	points = list(points.geoms)
+	if isinstance(points, Collection) and not isinstance(points, Sequence):
+		points = list(points)
+	lngs, lats = shapely.get_coordinates(points).T
 	dist_func = _geod_distance if use_haversine else haversine_distance
 	if isinstance(target_point, shapely.Point):
 		target_lat = target_point.y
@@ -168,8 +167,8 @@ def get_closest_points(
 		points = list(points.geoms)
 	n = len(points)
 	lngs, lats = shapely.get_coordinates(points).T
-	target_lng = numpy.asarray([target_point.x] * n)
-	target_lat = numpy.asarray([target_point.y] * n)
+	target_lng = numpy.repeat(target_point.x, n)
+	target_lat = numpy.repeat(target_point.y, n)
 	dist_func = haversine_distance if use_haversine else _geod_distance
 	distances = dist_func(target_lat, target_lng, lats, lngs)
 	shortest = min(distances)

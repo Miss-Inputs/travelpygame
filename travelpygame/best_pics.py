@@ -2,7 +2,7 @@ from collections.abc import Callable, Collection
 
 import numpy
 from geopandas import GeoDataFrame, GeoSeries
-from shapely import Point
+from shapely import Point, get_coordinates
 
 from .util.distance import geod_distance_and_bearing, haversine_distance
 
@@ -20,8 +20,9 @@ def _to_lat_lngs(points: Collection[Point] | numpy.ndarray | GeoSeries):
 		lats = points.y.to_numpy()
 		lngs = points.x.to_numpy()
 	else:
-		lats = numpy.asarray([point.y for point in points])
-		lngs = numpy.asarray([point.x for point in points])
+		if not isinstance(points, (numpy.ndarray, list, tuple)):
+			points = list(points)
+		lngs, lats = get_coordinates(points).T
 	return lats, lngs
 
 
