@@ -19,6 +19,7 @@ from tqdm.auto import tqdm
 from .best_pics import get_best_pic
 from .scoring import ScoringOptions, main_tpg_scoring, score_round
 from .tpg_data import Round, Submission, get_submissions_per_user
+from .util.other import format_xy
 
 logger = logging.getLogger(__name__)
 
@@ -185,6 +186,7 @@ def get_player_summary(new_rounds: Iterable[Round] | Simulation) -> pandas.DataF
 	total_distances: dict[str, float] = {}
 	times_above_average: dict[str, int] = {}
 	ranks_by_round: defaultdict[str, list[int]] = defaultdict(list)
+	pic_counts: defaultdict[str, list[str]] = defaultdict(list)
 	for r in new_rounds:
 		assert r.name is not None, 'why is r.name None'
 		average_distance = mean(sub.distance for sub in r.submissions if sub.distance is not None)
@@ -202,6 +204,7 @@ def get_player_summary(new_rounds: Iterable[Round] | Simulation) -> pandas.DataF
 			if sub.name not in times_above_average:
 				times_above_average[sub.name] = 0
 			times_above_average[sub.name] += sub.distance < average_distance
+			pic_counts[sub.name].append(sub.description or format_xy(sub.longitude, sub.latitude))
 
 	rows = []
 	valuegetter = itemgetter(1)
@@ -216,6 +219,9 @@ def get_player_summary(new_rounds: Iterable[Round] | Simulation) -> pandas.DataF
 		row['rounds_won'] = rank_counter[1]
 		row['rounds_podiummed'] = rank_counter[1] + rank_counter[2] + rank_counter[3]
 		row['rounds_lost'] = rank_counter[len(scores_by_round)]
+
+		pic_counter = Counter(pic_counts[name])
+		row['most_used'], row['count'] = max(pic_counter.items(), key=itemgetter(1))
 
 		rows.append(row)
 	return (
