@@ -104,15 +104,17 @@ class Simulation:
 
 def simulate_existing_rounds(
 	rounds: Collection[Round],
+	pics: dict[str, GeoSeries | Sequence[Point]] | None = None,
 	scoring: ScoringOptions | None = None,
 	strategy: SimulatedStrategy = SimulatedStrategy.Closest,
 	*,
 	use_haversine: bool = True,
 ) -> Simulation:
-	pics = {
-		player: shapely.points([(lng, lat) for lat, lng in latlngs]).tolist()
-		for player, latlngs in get_submissions_per_user(rounds).items()
-	}
+	if not pics:
+		pics = {
+			player: shapely.points([(lng, lat) for lat, lng in latlngs]).tolist()
+			for player, latlngs in get_submissions_per_user(rounds).items()
+		}
 	targets = {
 		r.name or f'Round {r.number}': shapely.Point(r.longitude, r.latitude) for r in rounds
 	}
