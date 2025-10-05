@@ -97,9 +97,10 @@ def random_points_in_poly(
 	out: list[shapely.Point] = []
 	with t:
 		while len(out) < n:
-			points = random_points_in_bbox(n, min_x, min_y, max_x, max_y, random)
+			points = random_points_in_bbox(n - len(out), min_x, min_y, max_x, max_y, random)
 			contains = contains_any_array(poly, points)
 			contained_points = points[contains].tolist()
+			contained_points = contained_points[:n - len(out)]
 			if isinstance(t, tqdm):
 				t.update(len(contained_points))
 			out += contained_points
