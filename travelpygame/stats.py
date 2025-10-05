@@ -15,15 +15,15 @@ logger = logging.getLogger(__name__)
 
 
 def _maximin_objective(x: numpy.ndarray, points: Collection[shapely.Point]) -> float:
-	lat, lng = x
+	lng, lat = x
 	distances = get_distances((lat, lng), points)
-	return -distances.min()
+	return -(distances.min())
 
 
 def _maximin_haversine_objective(x: numpy.ndarray, points: Collection[shapely.Point]) -> float:
-	lat, lng = x
+	lng, lat = x
 	distances = get_distances((lat, lng), points, use_haversine=True)
-	return -distances.min()
+	return -(distances.min())
 
 
 def _find_furthest_point_single(points: Collection[shapely.Point]):
