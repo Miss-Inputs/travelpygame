@@ -268,7 +268,7 @@ def _load_df_as_points(
 
 
 def load_points(
-	path: Path,
+	path: Path | str,
 	latitude_column_name: Hashable | None = None,
 	longitude_column_name: Hashable | None = None,
 	crs: Any = 'wgs84',
@@ -278,6 +278,8 @@ def load_points(
 	keep_lnglat_cols: bool = False,
 ) -> geopandas.GeoDataFrame:
 	"""Loads a file containing coordinates as a GeoDataFrame, either as a DataFrame (csv/Excel/pickle/etc) containing longitude and latitude columns, or a file directly supported by geopandas"""
+	if isinstance(path, str):
+		path = Path(path)
 	if not ext:
 		suffixes = path.suffixes
 		ext = suffixes[-1][1:].lower()
@@ -297,7 +299,7 @@ def load_points(
 
 
 async def load_points_async(
-	path: Path,
+	path: Path | str,
 	latitude_column_name: Hashable | None = None,
 	longitude_column_name: Hashable | None = None,
 	crs: Any = 'wgs84',
@@ -307,6 +309,8 @@ async def load_points_async(
 	keep_lnglat_cols: bool = False,
 ) -> geopandas.GeoDataFrame:
 	"""Loads a file containing coordinates as a GeoDataFrame asynchronously, either as a DataFrame (csv/Excel/pickle/etc) containing longitude and latitude columns, or a file directly supported by geopandas"""
+	if isinstance(path, str):
+		path = Path(path)
 	if not ext:
 		suffixes = path.suffixes
 		ext = suffixes[-1][1:].lower()
