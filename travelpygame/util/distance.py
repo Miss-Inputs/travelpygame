@@ -116,5 +116,5 @@ def haversine_distance(
 	c = 2 * numpy.asin(numpy.sqrt(a))
 	if isinstance(c, numpy.floating):
 		# Just to make sure nothing annoying happens elsewhere
-		c = float(c)
+		c = c.item()
 	return c * r
