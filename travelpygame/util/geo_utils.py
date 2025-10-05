@@ -313,3 +313,15 @@ def contains_any(
 		point = shapely.Point(point)
 	# Unfortunately there is no contains_properly inverse
 	return geo.sindex.query(point, 'within').size > 0
+
+
+def contains_any_array(
+	geo: 'GeoDataFrame | GeoSeries | GeometryArray | BaseGeometry',
+	points: numpy.ndarray | Sequence[shapely.Point],
+):
+	if isinstance(geo, BaseGeometry):
+		return geo.contains(points)
+	# Unfortunately there is no contains_properly inverse
+	if not isinstance(points, numpy.ndarray):
+		points = numpy.asarray(points)
+	return geo.sindex.query(points, 'within', output_format='dense').any(axis=0)

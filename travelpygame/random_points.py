@@ -5,7 +5,7 @@ import numpy
 import shapely
 from tqdm.auto import tqdm
 
-from .util.geo_utils import contains_any
+from .util.geo_utils import contains_any, contains_any_array
 
 RandomSeed = (
 	numpy.random.Generator | numpy.random.BitGenerator | numpy.random.SeedSequence | int | None
@@ -23,6 +23,17 @@ def random_point_in_bbox(
 	y = random.uniform(min_y, max_y)
 	return shapely.Point(x, y)
 
+def random_points_in_bbox(
+	n: int, min_x: float, min_y: float, max_x: float, max_y: float, random: RandomSeed = None
+):
+	"""Uniformly generates points somewhere in a bounding box."""
+	if not isinstance(random, numpy.random.Generator):
+		random = numpy.random.default_rng(random)
+	x = random.uniform(min_x, max_x, n)
+	y = random.uniform(min_y, max_y, n)
+	points = shapely.points(x, y)
+	assert not isinstance(points, shapely.Point)
+	return points
 
 def random_point_in_poly(
 	poly: shapely.Polygon | shapely.MultiPolygon | geopandas.GeoSeries | geopandas.GeoDataFrame,
@@ -82,13 +93,14 @@ def random_points_in_poly(
 	if not isinstance(random, numpy.random.Generator):
 		random = numpy.random.default_rng(random)
 	t = tqdm(**tqdm_kwargs, total=n) if use_tqdm else nullcontext()
-	points: list[shapely.Point] = []
-	# TODO: Does vectorization help this?
+	
+	out: list[shapely.Point] = []
 	with t:
-		while len(points) < n:
-			point = random_point_in_bbox(min_x, min_y, max_x, max_y, random)
-			if contains_any(poly, point):
-				if isinstance(t, tqdm):
-					t.update(1)
-				points.append(point)
-	return points
+		while len(out) < n:
+			points = random_points_in_bbox(n, min_x, min_y, max_x, max_y, random)
+			contains = contains_any_array(poly, points)
+			contained_points = points[contains].tolist()
+			if isinstance(t, tqdm):
+				t.update(len(contained_points))
+			out += contained_points
+	return out
