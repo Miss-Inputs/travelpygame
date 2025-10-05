@@ -45,28 +45,32 @@ class Simulation:
 	use_haversine: bool = True
 	use_tqdm: bool = True
 
+	def _choose_pic(self, pics: GeoSeries | Sequence[Point], target: Point):
+		if self.strategy == SimulatedStrategy.Random:
+			if isinstance(pics, GeoSeries):
+				desc, point = next(pics.sample(1).items())
+				assert isinstance(point, Point), f'point was {type(point)}, expected Point'
+			else:
+				desc = None
+				point = random.choice(pics)
+			# We will just let distance be calculated later
+			distance = None
+		else:
+			best_index, distance = get_best_pic(
+				pics,
+				target,
+				use_haversine=self.use_haversine,
+				reverse=self.strategy == SimulatedStrategy.Furthest,
+			)
+			desc = best_index if isinstance(pics, GeoSeries) else None
+			point = pics[best_index]
+			assert isinstance(point, Point), f'point was {type(point)}, expected Point'
+		return point, distance, desc
+
 	def simulate_round(self, name: str, number: int, target: Point) -> Round:
 		submissions: list[Submission] = []
 		for player, pics in self.player_pics.items():
-			if self.strategy == SimulatedStrategy.Random:
-				if isinstance(pics, GeoSeries):
-					desc, point = next(pics.sample(1).items())
-					assert isinstance(point, Point), f'point was {type(point)}, expected Point'
-				else:
-					desc = None
-					point = random.choice(pics)
-				# We will just let distance be calculated later
-				distance = None
-			else:
-				best_index, distance = get_best_pic(
-					pics,
-					target,
-					use_haversine=self.use_haversine,
-					reverse=self.strategy == SimulatedStrategy.Furthest,
-				)
-				desc = best_index if isinstance(pics, GeoSeries) else None
-				point = pics[best_index]
-				assert isinstance(point, Point), f'point was {type(point)}, expected Point'
+			point, distance, desc = self._choose_pic(pics, target)
 
 			submissions.append(
 				Submission(
