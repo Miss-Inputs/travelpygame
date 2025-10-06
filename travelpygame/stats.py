@@ -14,16 +14,19 @@ from .util import geod_distance, get_closest_point_index, get_distances, get_geo
 logger = logging.getLogger(__name__)
 
 
-def _maximin_objective(x: numpy.ndarray, points: Collection[shapely.Point]) -> float:
-	lng, lat = x
-	distances = get_distances((lat, lng), points)
-	return -(distances.min())
+def _maximin_objective(x: numpy.ndarray, *args) -> float:
+	points = args[0]
+	use_haversine = args[1] if len(args) > 1 else False
+	polygon: shapely.Polygon | None = args[2] if len(args) > 2 else None
 
-
-def _maximin_haversine_objective(x: numpy.ndarray, points: Collection[shapely.Point]) -> float:
 	lng, lat = x
-	distances = get_distances((lat, lng), points, use_haversine=True)
-	return -(distances.min())
+	penalize = False
+	if polygon and not shapely.contains_xy(polygon, lng, lat):
+		penalize = True
+
+	distances = get_distances((lat, lng), points, use_haversine=use_haversine)
+	min_dist = distances.min()
+	return min_dist if penalize else -min_dist
 
 
 def _find_furthest_point_single(points: Collection[shapely.Point]):
@@ -36,6 +39,7 @@ def _find_furthest_point_single(points: Collection[shapely.Point]):
 def find_furthest_point(
 	points: Collection[shapely.Point],
 	initial: shapely.Point | None = None,
+	polygon: shapely.Polygon | shapely.MultiPolygon | None = None,
 	max_iter: int = 1_000,
 	pop_size: int = 20,
 	tolerance: float = 1e-7,
@@ -43,10 +47,15 @@ def find_furthest_point(
 	use_tqdm: bool = True,
 	use_haversine: bool = False,
 ) -> tuple[shapely.Point, float]:
-	if len(points) == 1:
+	if len(points) == 1 and not polygon:
 		return _find_furthest_point_single(points)
 	# TODO: Should be able to trivially speed up len(points) == 2 by getting the midpoint of the two antipodes, unless I'm wrong
-	bounds = ((-180, 180), (-90, 90))
+	if polygon:
+		minx, miny, maxx, maxy = polygon.bounds
+		bounds = ((minx, maxx), (miny, maxy))
+		shapely.prepare(polygon)
+	else:
+		bounds = ((-180, 180), (-90, 90))
 	with tqdm(
 		desc='Differentially evolving', total=(max_iter + 1) * pop_size * 2, disable=not use_tqdm
 	) as t:
@@ -56,10 +65,10 @@ def find_furthest_point(
 			t.update()
 
 		result = differential_evolution(
-			_maximin_haversine_objective if use_haversine else _maximin_objective,
+			_maximin_objective,
 			bounds,
 			popsize=pop_size,
-			args=(points,),
+			args=(points, use_haversine, polygon),
 			x0=numpy.asarray([initial.x, initial.y]) if initial else None,
 			maxiter=max_iter,
 			mutation=(0.5, 1.5),
