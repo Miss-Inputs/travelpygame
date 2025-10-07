@@ -3,7 +3,7 @@
 import asyncio
 import warnings
 from collections.abc import Hashable
-from pathlib import Path
+from pathlib import Path, PurePath
 from typing import Any
 
 import geopandas
@@ -18,12 +18,14 @@ class UnsupportedFileException(Exception):
 	"""File type was not supported."""
 
 
-def read_dataframe_pickle(path: Path, **tqdm_kwargs) -> pandas.DataFrame:
+def read_dataframe_pickle(path: PurePath | str, **tqdm_kwargs) -> pandas.DataFrame:
 	"""Reads a pickled DataFrame from a file path, displaying a progress bar for long files.
 
 	Raises:
 		TypeError: If the pickle file does not actually contain a DataFrame.
 	"""
+	if not isinstance(path, Path):
+		path = Path(path)
 	size = path.stat().st_size
 	desc = tqdm_kwargs.pop('desc', f'Reading {path}')
 	leave = tqdm_kwargs.pop('leave', False)
@@ -40,18 +42,20 @@ def read_dataframe_pickle(path: Path, **tqdm_kwargs) -> pandas.DataFrame:
 	return obj
 
 
-async def read_dataframe_pickle_async(path: Path, **tqdm_kwargs) -> pandas.DataFrame:
+async def read_dataframe_pickle_async(path: PurePath | str, **tqdm_kwargs) -> pandas.DataFrame:
 	"""Reads a pickled DataFrame from a file path in a separate thread, displaying a progress bar for long files."""
 	# Could use aiofiles, but eh
 	return await asyncio.to_thread(read_dataframe_pickle, path, **tqdm_kwargs)
 
 
-def read_geodataframe(path: Path) -> geopandas.GeoDataFrame:
+def read_geodataframe(path: PurePath | str) -> geopandas.GeoDataFrame:
 	"""Reads a GeoDataFrame from a path, which can be compressed using Zstandard.
 
 	Raises:
 		TypeError: If path ever contains something other than a GeoDataFrame.
 	"""
+	if not isinstance(path, Path):
+		path = Path(path)
 	if path.suffix.lower() == '.zst':
 		with (
 			ZstdFile(path, 'r') as zst,
@@ -73,7 +77,7 @@ def read_geodataframe(path: Path) -> geopandas.GeoDataFrame:
 	return gdf
 
 
-async def read_geodataframe_async(path: Path) -> geopandas.GeoDataFrame:
+async def read_geodataframe_async(path: PurePath | str) -> geopandas.GeoDataFrame:
 	"""Reads a GeoDataFrame from a path in another thread, which can be compressed using Zstandard."""
 	return await asyncio.to_thread(read_geodataframe, path)
 
@@ -126,7 +130,7 @@ dataframe_exts = csv_exts | excel_exts | pickle_exts | other_df_readers.keys()
 
 def output_geodataframe(
 	gdf: geopandas.GeoDataFrame,
-	path: Path,
+	path: PurePath | str,
 	lat_col_name: Hashable = 'lat',
 	lng_col_name: Hashable = 'lng',
 	*,
@@ -137,6 +141,9 @@ def output_geodataframe(
 ):
 	"""Outputs a GeoDataFrame automatically to the right format depending on the extension of `path`. `lat_col_name`, `lng_col_name`, `include_z`, `insert_before`, `index` are only used when outputting to a non-geographical format like csv/ods/etc."""
 	# TODO: I guess you might want to handle compressed extensions
+	if not isinstance(path, PurePath):
+		# We just need the suffix
+		path = PurePath(path)
 	ext = path.suffix[1:].lower()
 	if ext == 'csv':
 		df = _geodataframe_to_normal_df(
@@ -157,7 +164,7 @@ def output_geodataframe(
 
 
 def read_dataframe(
-	path: Path,
+	path: PurePath | str,
 	ext: str | None = None,
 	csv_encoding: str = 'utf-8',
 	csv_sep: str | None = None,
@@ -178,6 +185,8 @@ def read_dataframe(
 	Raises:
 		UnsupportedFileException: If not a known file type.
 	"""
+	if not isinstance(path, PurePath):
+		path = PurePath(path)
 	if not ext:
 		suffixes = path.suffixes
 		ext = suffixes[-1][1:].lower()
@@ -209,7 +218,7 @@ def read_dataframe(
 
 
 async def read_dataframe_async(
-	path: Path,
+	path: PurePath | str,
 	ext: str | None = None,
 	csv_encoding: str = 'utf-8',
 	csv_sep: str | None = None,
@@ -237,7 +246,7 @@ longitude_column_names = {'lng', 'lon', 'longitude', 'x', 1}
 
 
 def _load_df_as_points(
-	path: Path,
+	path: PurePath | str,
 	latitude_column_name: Hashable | None = None,
 	longitude_column_name: Hashable | None = None,
 	crs: Any = 'wgs84',
@@ -268,7 +277,7 @@ def _load_df_as_points(
 
 
 def load_points(
-	path: Path | str,
+	path: PurePath | str,
 	latitude_column_name: Hashable | None = None,
 	longitude_column_name: Hashable | None = None,
 	crs: Any = 'wgs84',
@@ -278,7 +287,7 @@ def load_points(
 	keep_lnglat_cols: bool = False,
 ) -> geopandas.GeoDataFrame:
 	"""Loads a file containing coordinates as a GeoDataFrame, either as a DataFrame (csv/Excel/pickle/etc) containing longitude and latitude columns, or a file directly supported by geopandas"""
-	if isinstance(path, str):
+	if not isinstance(path, PurePath):
 		path = Path(path)
 	if not ext:
 		suffixes = path.suffixes
@@ -299,7 +308,7 @@ def load_points(
 
 
 async def load_points_async(
-	path: Path | str,
+	path: PurePath | str,
 	latitude_column_name: Hashable | None = None,
 	longitude_column_name: Hashable | None = None,
 	crs: Any = 'wgs84',
@@ -309,7 +318,7 @@ async def load_points_async(
 	keep_lnglat_cols: bool = False,
 ) -> geopandas.GeoDataFrame:
 	"""Loads a file containing coordinates as a GeoDataFrame asynchronously, either as a DataFrame (csv/Excel/pickle/etc) containing longitude and latitude columns, or a file directly supported by geopandas"""
-	if isinstance(path, str):
+	if not isinstance(path, PurePath):
 		path = Path(path)
 	if not ext:
 		suffixes = path.suffixes
