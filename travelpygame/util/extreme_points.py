@@ -64,6 +64,7 @@ def get_extreme_points(
 	"""Gets extreme points of a geometry (which would generally be a polygon or multipolygon).
 
 	Arguments:
+		geom: Geometry, which would generally be a polygon or multipolygon.
 		crs: The CRS of the returned GeoSeries, which should be the CRS that geom's coordinates are in.
 		name: Name of geom, to append to the names of each point.
 		find_centre_points: If true, include points that are kind of the centre, but not really.
@@ -125,12 +126,14 @@ def get_extreme_points(
 
 
 def get_extreme_corner_vertices(
-	geom: 'BaseGeometry', name: str | None = None, crs: Any | None = 'wgs84'
+	geom: 'BaseGeometry', crs: Any | None = 'wgs84', name: str | None = None
 ) -> geopandas.GeoSeries:
-	"""Tries to find northwest/northeast/southeast/southwest points. Might not be entirely correct, as it can only ever return vertices in the original geometry, and might be a bit slow.
+	"""Tries to find northwest/northeast/southeast/southwest points, by getting the closest vertex to each corner of the bounding box. Might not be entirely correct, as it can only ever return vertices in the original geometry, and might be a bit slow.
 
 	Arguments:
 		geom: Geometry, intended to be a polygon/multipolygon.
+		crs: The CRS of the returned GeoSeries, which should be the CRS that geom's coordinates are in.
+		name: Name of geom, to append to the names of each point.
 	"""
 	minx, miny, maxx, maxy = geom.bounds
 
@@ -165,14 +168,20 @@ def get_extreme_corner_vertices(
 
 
 def get_extreme_corner_points(
-	geom: 'BaseGeometry', name: str | None = None, crs: Any | None = 'wgs84'
+	geom: 'BaseGeometry',
+	crs: Any | None = 'wgs84',
+	name: str | None = None,
+	metric_crs: Any | None = None,
 ) -> geopandas.GeoSeries:
-	"""Tries to find northwest/northeast/southeast/southwest points. Might not be entirely correct, and might be a bit slow. This is a different method
+	"""Tries to find northwest/northeast/southeast/southwest points, by getting the closest point to each corner of the bounding box. Might not be entirely correct, and might be a bit slow. This is a different method
 
 	Arguments:
 		geom: Geometry, intended to be a polygon/multipolygon.
+		crs: The CRS of the returned GeoSeries, which should be the CRS that geom's coordinates are in.
+		name: Name of geom, to append to the names of each point.
 	"""
-	metric_crs = get_metric_crs(geom)
+	if not metric_crs:
+		metric_crs = get_metric_crs(geom)
 	trans_to, trans_from = get_transform_methods(crs, metric_crs)
 	transformed = shapely.ops.transform(trans_to, geom)
 	shapely.prepare(transformed)
