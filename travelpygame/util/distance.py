@@ -47,8 +47,8 @@ def geod_distance_and_bearing(
 	Arguments:
 		lat1: Latitude of point A, or list/ndarray/etc
 		lng1: Longitude of point A, or list/ndarray/etc
-		lat2: Latitude of point A, or list/ndarray/etc
-		lng2: Longitude of point A, or list/ndarray/etc
+		lat2: Latitude of point B, or list/ndarray/etc
+		lng2: Longitude of point B, or list/ndarray/etc
 		radians: If true, treats the arguments as being in radians, otherwise they are degrees (as normal people use for coordinates)
 
 	Returns:

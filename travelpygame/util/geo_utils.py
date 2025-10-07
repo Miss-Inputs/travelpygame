@@ -1,5 +1,5 @@
 from collections.abc import Callable, Collection, Iterable, Sequence
-from functools import partial
+from functools import cache, partial
 from itertools import chain
 from operator import itemgetter
 from typing import TYPE_CHECKING, Any
@@ -184,20 +184,45 @@ def get_metric_crs(g: 'BaseGeometry') -> pyproj.CRS:
 	)
 
 
+@cache
+def get_transform_methods(from_crs: Any, to_crs: Any):
+	"""Gets two functions to use with shapely.ops.transform, the regular direction, and inverse. Less verbose this way."""
+	transformer = pyproj.Transformer.from_crs(from_crs, to_crs, always_xy=True)
+	return transformer.transform, partial(transformer.transform, direction='inverse')
+
+
 def apply_transformed[T: 'BaseGeometry'](
 	func: Callable[..., T], g: 'BaseGeometry', crs: Any = None, *args, **kwargs
 ) -> T:
 	if not crs:
 		crs = get_metric_crs(g)
-	transformer = pyproj.Transformer.from_crs('WGS84', crs, always_xy=True)
-	projected = transform(transformer.transform, g)
+	transform_to, transform_from = get_transform_methods('WGS84', crs)
+	projected = transform(transform_to, g)
 	result = func(projected, *args, **kwargs)
-	return transform(partial(transformer.transform, direction='inverse'), result)
+	return transform(transform_from, result)
 
 
 def get_centroid(g: 'BaseGeometry', crs: Any = None) -> shapely.Point:
 	"""Gets the centroid of some points in WGS84 properly, accounting for projection by converting to a different CRS instead."""
 	return apply_transformed(shapely.centroid, g, crs)
+
+
+def fix_x_coord(x: float) -> float:
+	x %= 360
+	if x > 180:
+		return x - 360
+	if x <= 180:
+		return x + 360
+	return x
+
+
+def fix_y_coord(y: float) -> float:
+	y %= 180
+	if y > 90:
+		return y - 180
+	if y <= 90:
+		return y + 180
+	return y
 
 
 def circular_mean(angles: Sequence[float] | numpy.ndarray) -> float:
@@ -210,7 +235,7 @@ def circular_mean(angles: Sequence[float] | numpy.ndarray) -> float:
 	sin_sum = numpy.sin(angles).sum()
 	cos_sum = numpy.cos(angles).sum()
 	# Convert it from numpy.floating to float otherwise that's maybe annoying
-	return float(numpy.atan2(sin_sum, cos_sum))
+	return numpy.atan2(sin_sum, cos_sum).item()
 
 
 def circular_mean_xy(x: Iterable[float], y: Iterable[float]) -> tuple[float, float]:
