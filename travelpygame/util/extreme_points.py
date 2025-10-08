@@ -106,20 +106,20 @@ def get_extreme_points(
 	max_north = y.max()
 
 	d: dict[str, shapely.Point] = {}
-	_add_points(d, _maybe_prefix(name, 'westmost'), coords[x == max_west])
-	_add_points(d, _maybe_prefix(name, 'eastmost'), coords[x == max_east])
-	_add_points(d, _maybe_prefix(name, 'northmost'), coords[y == max_north])
-	_add_points(d, _maybe_prefix(name, 'southmost'), coords[y == max_south])
+	_add_points(d, _maybe_prefix(name, 'westmost point'), coords[x == max_west])
+	_add_points(d, _maybe_prefix(name, 'eastmost point'), coords[x == max_east])
+	_add_points(d, _maybe_prefix(name, 'northmost point'), coords[y == max_north])
+	_add_points(d, _maybe_prefix(name, 'southmost point'), coords[y == max_south])
 	if find_centre_points:
 		mean_x, mean_y = circular_mean_xy(x, y)
 		if force_non_contained_centre_points or shapely.contains_xy(geom, mean_x, mean_y):
-			_add_points(d, _maybe_prefix(name, 'mean of edges'), (mean_x, mean_y))
+			_add_points(d, _maybe_prefix(name, 'boundary circular mean'), (mean_x, mean_y))
 
 		# This is not _really_ correct btw but eh
 		centre_x = fix_x_coord((max_west + max_east) / 2)
 		centre_y = fix_y_coord((max_south + max_north) / 2)
 		if force_non_contained_centre_points or shapely.contains_xy(geom, centre_x, centre_y):
-			_add_points(d, _maybe_prefix(name, 'centre of maximums'), (centre_x, centre_y))
+			_add_points(d, _maybe_prefix(name, 'centre of extremes'), (centre_x, centre_y))
 
 	gs = geopandas.GeoSeries(d, crs=crs)
 	return _drop_duplicates(gs)
@@ -158,10 +158,10 @@ def get_extreme_corner_vertices(
 	sw_most = coords[sw_distances.argmin()]
 
 	d = {
-		_maybe_prefix(name, 'northwestmost'): shapely.Point(nw_most),
-		_maybe_prefix(name, 'northeastmost'): shapely.Point(ne_most),
-		_maybe_prefix(name, 'southeastmost'): shapely.Point(se_most),
-		_maybe_prefix(name, 'southwestmost'): shapely.Point(sw_most),
+		_maybe_prefix(name, 'northwestmost point'): shapely.Point(nw_most),
+		_maybe_prefix(name, 'northeastmost point'): shapely.Point(ne_most),
+		_maybe_prefix(name, 'southeastmost point'): shapely.Point(se_most),
+		_maybe_prefix(name, 'southwestmost point'): shapely.Point(sw_most),
 	}
 	gs = geopandas.GeoSeries(d, crs=crs)
 	return _drop_duplicates(gs)
@@ -198,10 +198,10 @@ def get_extreme_corner_points(
 	sw_most = shapely.ops.transform(trans_from, shapely.ops.nearest_points(transformed, sw)[0])
 
 	d = {
-		_maybe_prefix(name, 'northwestmost'): nw_most,
-		_maybe_prefix(name, 'northeastmost'): ne_most,
-		_maybe_prefix(name, 'southeastmost'): se_most,
-		_maybe_prefix(name, 'southwestmost'): sw_most,
+		_maybe_prefix(name, 'northwestmost point'): nw_most,
+		_maybe_prefix(name, 'northeastmost point'): ne_most,
+		_maybe_prefix(name, 'southeastmost point'): se_most,
+		_maybe_prefix(name, 'southwestmost point'): sw_most,
 	}
 	gs = geopandas.GeoSeries(d, crs=crs)
 	return _drop_duplicates(gs)
