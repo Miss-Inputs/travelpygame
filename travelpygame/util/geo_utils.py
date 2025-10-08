@@ -96,7 +96,7 @@ def _make_crs_info_sort_key(bounds: tuple[float, float, float, float]):
 
 def get_projected_crs(
 	bounds: tuple[float, float, float, float] | BaseGeometry | GeoSeries | GeoDataFrame,
-):
+) -> pyproj.CRS | None:
 	"""Similar to geopandas estimate_utm_crs, but doesn't necessarily use an UTM zone"""
 	if isinstance(bounds, (GeoSeries, GeoDataFrame)):
 		west, south, east, north = bounds.total_bounds
@@ -113,9 +113,14 @@ def get_projected_crs(
 		crs_infos, key=lambda info: (info.code, info.name.startswith('GDA2020')), reverse=True
 	)
 	sort_key = _make_crs_info_sort_key((west, south, east, north))
-	closest = min(crs_infos, key=sort_key)
-
-	return pyproj.CRS.from_authority(closest.auth_name, closest.code)
+	crs_infos = sorted(crs_infos, key=sort_key)
+	valid_ellipses = pyproj.get_ellps_map().keys()
+	# This seems to have all the _earth_ ellipsoids
+	for crs_info in crs_infos:
+		crs = pyproj.CRS.from_authority(crs_info.auth_name, crs_info.code)
+		if crs.datum and crs.datum.ellipsoid and crs.datum.ellipsoid.name in valid_ellipses:
+			return crs
+	return None
 
 
 def get_metric_crs(g: BaseGeometry) -> pyproj.CRS:
