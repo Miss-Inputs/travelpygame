@@ -39,14 +39,14 @@ def format_number(n: float, decimal_places: int = 6):
 
 
 def format_distance(n: float, decimal_places: int = 6, unit: str = 'm'):
-	if n > 1_000:
+	if abs(n) > 1_000:
 		return f'{format_number(n / 1_000, decimal_places)}k{unit}'
-	if n < 1e-2:
+	if abs(n) < 1e-2:
 		return f'{format_number(n * 100, decimal_places)}c{unit}'
 	return f'{format_number(n, decimal_places)}{unit}'
 
 
 def format_area(n: float, decimal_places: int = 6, unit: str = 'm²'):
-	if n > 1_000_000:
+	if abs(n) > 1_000_000:
 		return f'{format_number(n / 1_000_000, decimal_places)}k{unit}'
 	return f'{format_number(n, decimal_places)}{unit}'
