@@ -112,13 +112,13 @@ def get_extreme_points(
 	_add_points(d, _maybe_prefix(name, 'southmost point'), coords[y == max_south])
 	if find_centre_points:
 		mean_x, mean_y = circular_mean_xy(x, y)
-		if force_non_contained_centre_points or shapely.contains_xy(geom, mean_x, mean_y):
+		if force_non_contained_centre_points or shapely.intersects_xy(geom, mean_x, mean_y):
 			_add_points(d, _maybe_prefix(name, 'boundary circular mean'), (mean_x, mean_y))
 
 		# This is not _really_ correct btw but eh
 		centre_x = fix_x_coord((max_west + max_east) / 2)
 		centre_y = fix_y_coord((max_south + max_north) / 2)
-		if force_non_contained_centre_points or shapely.contains_xy(geom, centre_x, centre_y):
+		if force_non_contained_centre_points or shapely.intersects_xy(geom, centre_x, centre_y):
 			_add_points(d, _maybe_prefix(name, 'centre of extremes'), (centre_x, centre_y))
 
 	gs = geopandas.GeoSeries(d, crs=crs)

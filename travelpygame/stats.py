@@ -21,7 +21,7 @@ def _maximin_objective(x: numpy.ndarray, *args) -> float:
 
 	lng, lat = x
 	penalize = False
-	if polygon and not shapely.contains_xy(polygon, lng, lat):
+	if polygon and not shapely.intersects_xy(polygon, lng, lat):
 		penalize = True
 
 	distances = get_distances((lat, lng), points, use_haversine=use_haversine)
