@@ -96,6 +96,8 @@ def score_round(
 ) -> 'Round':
 	# TODO: Take into account ties (all players within a group of is_tie have their scores averaged out)
 	n = len(round_.submissions)
+	if n == 0:
+		return round_
 	subs = pandas.DataFrame([s.model_dump() for s in round_.submissions])
 
 	lats = subs['latitude'].to_numpy()
