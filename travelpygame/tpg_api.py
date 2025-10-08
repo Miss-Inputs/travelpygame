@@ -1,7 +1,6 @@
 """API used by the new site, https://travelpicsgame.com"""
 
 from datetime import datetime
-from typing import Literal
 
 from aiohttp import ClientSession
 from pydantic import BaseModel, Field, TypeAdapter
@@ -23,20 +22,22 @@ class TPGRound(BaseModel, extra='forbid'):
 	start_timestamp: datetime | None
 	end_timestamp: datetime | None
 	season: int
-	game: Literal[1]
-	"""?"""
+	game: int
+	"""Which game this round is for (1 = main TPG, etc)"""
 
 
 _round_list_adapter = TypeAdapter(list[TPGRound])
 
-def get_session():
-	return ClientSession(headers={'User-Agent':user_agent})
 
-async def get_rounds(session: ClientSession | None = None) -> list[TPGRound]:
+def get_session():
+	return ClientSession(headers={'User-Agent': user_agent})
+
+
+async def get_rounds(game: int = 1, session: ClientSession | None = None) -> list[TPGRound]:
 	if session is None:
 		async with get_session() as sesh:
-			return await get_rounds(sesh)
-	url = 'https://travelpicsgame.com/api/v1/rounds'
+			return await get_rounds(game, sesh)
+	url = f'https://travelpicsgame.com/api/v1/rounds/{game}'
 	async with session.get(url) as response:
 		response.raise_for_status()
 		text = await response.text()
@@ -60,18 +61,19 @@ class TPGSubmission(BaseModel):
 	discord_id: str
 	"""In theory this is an int, but since it is an opaque ID, might as well leave it as str"""
 	is_tie: bool
+	game: int
 
 
 _sub_list_adapter = TypeAdapter(list[TPGSubmission])
 
 
 async def get_round_submissions(
-	round_num: int, session: ClientSession | None = None
+	round_num: int, game: int = 1, session: ClientSession | None = None
 ) -> list[TPGSubmission]:
 	if session is None:
 		async with get_session() as sesh:
-			return await get_round_submissions(round_num, sesh)
-	url = f'https://travelpicsgame.com/api/v1/submissions/round/{round_num}'
+			return await get_round_submissions(round_num, game, sesh)
+	url = f'https://travelpicsgame.com/api/v1/submissions/{game}/1/round/{round_num}'
 	async with session.get(url) as response:
 		response.raise_for_status()
 		text = await response.text()
@@ -79,7 +81,7 @@ async def get_round_submissions(
 
 
 async def get_all_submissions(
-	max_round_num: int | None, session: ClientSession | None = None
+	max_round_num: int | None, game: int = 1, session: ClientSession | None = None
 ) -> dict[int, list[TPGSubmission]]:
 	"""Gets all Travel Pics Game submissions that have been added to the map.
 
@@ -94,13 +96,13 @@ async def get_all_submissions(
 	# Could be parallelized, but that might not be very nice, unless it's just using a lock anyway in which case it wouldn't necessarily accomplish much
 	if session is None:
 		async with get_session() as sesh:
-			return await get_all_submissions(max_round_num, sesh)
+			return await get_all_submissions(max_round_num, game, sesh)
 
 	subs: dict[int, list[TPGSubmission]] = {}
 	round_num = 1
 	with tqdm(total=max_round_num) as t:
 		while (max_round_num is None) or (round_num <= max_round_num):
-			round_subs = await get_round_submissions(round_num, session)
+			round_subs = await get_round_submissions(round_num, game, session)
 			t.update()
 			if not round_subs:
 				break
@@ -127,3 +129,7 @@ async def get_players(session: ClientSession | None = None) -> list[TPGPlayer]:
 		response.raise_for_status()
 		text = await response.text()
 	return _player_list_adapter.validate_json(text)
+
+
+# TODO: /api/v1/games could be something
+# TODO: /api/v1/submissions/user/{discord_id} could be something if getting an individual player

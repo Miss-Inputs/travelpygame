@@ -73,7 +73,7 @@ class Round(RoundInfo):
 def _convert_submission(
 	sub: tpg_api.TPGSubmission, players: dict[str, tpg_api.TPGPlayer]
 ) -> Submission:
-	extra = {'id': sub.id, 'discord_id': sub.discord_id}
+	extra = {'id': sub.id, 'discord_id': sub.discord_id, 'game': sub.game}
 	if sub.discord_id in players:
 		player = players[sub.discord_id]
 		name = player.name
@@ -92,24 +92,24 @@ def _convert_submission(
 	)
 
 
-async def get_main_tpg_rounds(session: ClientSession | None = None) -> list[Round]:
+async def get_main_tpg_rounds(game: int = 1, session: ClientSession | None = None) -> list[Round]:
 	if session is None:
 		async with ClientSession() as sesh:
-			return await get_main_tpg_rounds(sesh)
+			return await get_main_tpg_rounds(game, sesh)
 
-	api_rounds = await tpg_api.get_rounds(session)
+	api_rounds = await tpg_api.get_rounds(game, session)
 	players = {player.discord_id: player for player in await tpg_api.get_players(session)}
 
 	rounds: list[Round] = []
 
 	with tqdm(api_rounds, 'Getting submissions', unit='round') as t:
 		for round_ in t:
-			api_subs = await tpg_api.get_round_submissions(round_.number, session)
+			api_subs = await tpg_api.get_round_submissions(round_.number, game, session)
 			subs = [_convert_submission(sub, players) for sub in api_subs]
 			name = f'R{round_.number}: {round_.country}' if round_.country else f'R{round_.number}'
 			if round_.water:
 				name += ' (water)'
-			extra: dict[str, Any] = {'is_water': round_.water}
+			extra: dict[str, Any] = {'is_water': round_.water, 'game': round_.game}
 			if round_.start_timestamp:
 				extra['start_date'] = round_.start_timestamp
 			if round_.end_timestamp:
@@ -134,7 +134,7 @@ round_list_adapter = TypeAdapter(list[Round])
 
 
 async def get_main_tpg_rounds_with_path(
-	path: Path | None = None, session: ClientSession | None = None
+	path: Path | None = None, game: int=1, session: ClientSession | None = None
 ) -> list[Round]:
 	if path:
 		try:
@@ -142,7 +142,7 @@ async def get_main_tpg_rounds_with_path(
 			return round_list_adapter.validate_json(content)
 		except FileNotFoundError:
 			pass
-	rounds = await get_main_tpg_rounds(session)
+	rounds = await get_main_tpg_rounds(game, session)
 	if path:
 		j = round_list_adapter.dump_json(rounds, indent=4, exclude_none=True)
 		await asyncio.to_thread(path.write_bytes, j)
