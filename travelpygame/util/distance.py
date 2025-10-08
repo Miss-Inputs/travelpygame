@@ -1,14 +1,13 @@
 """Tools for measuring distance and such."""
 
-from collections.abc import Sequence
-from typing import TYPE_CHECKING, overload
+from collections.abc import Collection, Sequence
+from operator import itemgetter
+from typing import overload
 
 import numpy
 import pandas
 import pyproj
-
-if TYPE_CHECKING:
-	from shapely import Point
+import shapely
 
 wgs84_geod = pyproj.Geod(ellps='WGS84')
 
@@ -61,7 +60,7 @@ def geod_distance_and_bearing(
 	return (dist, bearing)
 
 
-def geod_distance(point1: 'Point', point2: 'Point') -> float:
+def geod_distance(point1: shapely.Point, point2: shapely.Point) -> float:
 	"""Returns WGS84 geodesic distance between point1 and point2 (assumed to be WGS84 coordinates) in metres."""
 	return geod_distance_and_bearing(point1.y, point1.x, point2.y, point2.x)[0]
 
@@ -118,3 +117,109 @@ def haversine_distance(
 		# Just to make sure nothing annoying happens elsewhere
 		c = c.item()
 	return c * r
+
+
+def _geod_distance(
+	lat: numpy.ndarray, lng: numpy.ndarray, target_lat: numpy.ndarray, target_lng: numpy.ndarray
+) -> numpy.ndarray:
+	return geod_distance_and_bearing(lat, lng, target_lat, target_lng)[0]
+
+
+def get_distances(
+	target_point: shapely.Point | tuple[float, float],
+	points: Collection[shapely.Point] | shapely.MultiPoint | numpy.ndarray,
+	*,
+	use_haversine: bool = False,
+):
+	"""Finds the distances from all points in `points` to `target_point`, in the original order of points. By default, uses geodetic distance. If `target_point` is a tuple, it should be lat, lng."""
+	if isinstance(points, numpy.ndarray) and points.dtype.kind == 'f':
+		if points.shape[0] == 2:
+			lngs, lats = points
+		elif points.shape[1] == 2:
+			lngs, lats = points.T
+		else:
+			raise ValueError(
+				'If points is a numpy array of floats, it must be 2D, wih one axis having size 2'
+			)
+	else:
+		if isinstance(points, Collection) and not isinstance(points, Sequence):
+			points = list(points)
+		lngs, lats = shapely.get_coordinates(points).T
+	dist_func = _geod_distance if use_haversine else haversine_distance
+	if isinstance(target_point, shapely.Point):
+		target_lat = target_point.y
+		target_lng = target_point.x
+	else:
+		target_lat, target_lng = target_point
+	return dist_func(
+		numpy.repeat(target_lat, lats.size), numpy.repeat(target_lng, lngs.size), lats, lngs
+	)
+
+
+def get_closest_point(
+	target_point: shapely.Point,
+	points: Collection[shapely.Point] | shapely.MultiPoint,
+	*,
+	use_haversine: bool = False,
+) -> tuple[shapely.Point, float]:
+	"""Finds the closest point and the distance to it in a collection of points. Uses geodetic distance by default. If multiple points are equally close, arbitrarily returns one of them.
+
+	Returns:
+		Point, distance in metres
+	"""
+	if isinstance(points, shapely.MultiPoint):
+		points = list(points.geoms)
+	if isinstance(points, Sequence):
+		distances = get_distances(target_point, points, use_haversine=use_haversine)
+		index = distances.argmin().item()
+		return points[index], distances[index]
+
+	generator = (
+		(
+			p,
+			haversine_distance(target_point.y, target_point.x, p.y, p.x)
+			if use_haversine
+			else geod_distance(target_point, p),
+		)
+		for p in points
+	)
+	return min(generator, key=itemgetter(1))
+
+
+def get_closest_point_index(
+	target_point: shapely.Point,
+	points: Collection[shapely.Point] | shapely.MultiPoint,
+	*,
+	use_haversine: bool = False,
+) -> tuple[int, float]:
+	"""Finds the index of the closest point and the distance to it in a collection of points. Uses geodetic distance by default. If multiple points are equally close, arbitrarily returns the index of one of them.
+
+	Returns:
+		Point, distance in metres
+	"""
+	distances = get_distances(target_point, points, use_haversine=use_haversine)
+	index = distances.argmin().item()
+	return index, distances[index]
+
+
+def get_closest_points(
+	target_point: shapely.Point,
+	points: 'Sequence[shapely.Point] | shapely.MultiPoint | numpy.ndarray',
+	*,
+	use_haversine: bool = False,
+):
+	"""Finds the closest point(s) and the distance to them in a collection of points. Uses geodetic distance by default.
+
+	Returns:
+		Points, distance in metres
+	"""
+	if isinstance(points, shapely.MultiPoint):
+		points = list(points.geoms)
+	n = len(points)
+	lngs, lats = shapely.get_coordinates(points).T
+	target_lng = numpy.repeat(target_point.x, n)
+	target_lat = numpy.repeat(target_point.y, n)
+	dist_func = haversine_distance if use_haversine else _geod_distance
+	distances = dist_func(target_lat, target_lng, lats, lngs)
+	shortest = min(distances)
+	return [point for i, point in enumerate(points) if distances[i] == shortest], shortest

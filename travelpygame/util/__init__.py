@@ -1,4 +1,13 @@
-from .distance import geod_distance, geod_distance_and_bearing, haversine_distance, wgs84_geod
+from .distance import (
+	geod_distance,
+	geod_distance_and_bearing,
+	get_closest_point,
+	get_closest_point_index,
+	get_closest_points,
+	get_distances,
+	haversine_distance,
+	wgs84_geod,
+)
 from .extreme_points import get_extreme_corner_points, get_extreme_points
 from .geo_utils import (
 	apply_transformed,
@@ -11,10 +20,6 @@ from .geo_utils import (
 	get_antipode,
 	get_antipodes,
 	get_centroid,
-	get_closest_point,
-	get_closest_point_index,
-	get_closest_points,
-	get_distances,
 	get_geometry_antipode,
 	get_metric_crs,
 	get_midpoint,
