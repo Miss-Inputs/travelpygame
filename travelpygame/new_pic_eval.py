@@ -11,7 +11,7 @@ from geopandas import GeoDataFrame, GeoSeries
 from shapely import Point
 from tqdm.auto import tqdm
 
-from .best_pics import PointSet, get_best_pic, haversine_distances
+from .best_pics import PointSet, geod_distances, get_best_pic, haversine_distances
 from .tpg_data import load_rounds
 from .util.distance import geod_distance, haversine_distance
 from .util.io_utils import load_points
@@ -168,7 +168,11 @@ def find_new_pics_better_individually(
 				)
 				continue
 			t.set_postfix(new_point=index)
-			new_distances = haversine_distances(targets, new_point)
+			new_distances = (
+				haversine_distances(targets, new_point)
+				if use_haversine
+				else geod_distances(targets, new_point)
+			)
 			is_better = new_distances < current_distances
 			if not is_better.any():
 				continue
