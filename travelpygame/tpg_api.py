@@ -73,7 +73,7 @@ async def get_round_submissions(
 	if session is None:
 		async with get_session() as sesh:
 			return await get_round_submissions(round_num, game, sesh)
-	url = f'https://travelpicsgame.com/api/v1/submissions/{game}/1/round/{round_num}'
+	url = f'https://travelpicsgame.com/api/v1/submissions/game/{game}/round/{round_num}'
 	async with session.get(url) as response:
 		response.raise_for_status()
 		text = await response.text()
