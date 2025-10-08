@@ -8,7 +8,10 @@ import numpy
 import pyproj
 import shapely
 from geopandas import GeoDataFrame, GeoSeries
-from shapely.geometry.base import BaseGeometry
+from pyproj.aoi import AreaOfInterest
+from pyproj.database import CRSInfo, query_crs_info
+from pyproj.enums import PJType
+from shapely.geometry.base import BaseGeometry, BaseMultipartGeometry
 from shapely.ops import transform
 
 from .distance import geod_distance, geod_distance_and_bearing, haversine_distance, wgs84_geod
@@ -44,7 +47,7 @@ def get_antipode(lat: float, lng: float) -> tuple[float, float]:
 	return antilat, antilng
 
 
-def get_geometry_antipode[T: 'BaseGeometry'](g: T) -> T:
+def get_geometry_antipode[T: BaseGeometry](g: T) -> T:
 	if isinstance(g, shapely.Point):
 		antilat, antilng = get_antipode(g.y, g.x)
 		return shapely.Point(antilng, antilat)
@@ -175,10 +178,56 @@ def get_closest_points(
 	return [point for i, point in enumerate(points) if distances[i] == shortest], shortest
 
 
-def get_metric_crs(g: 'BaseGeometry') -> pyproj.CRS:
+def bounds_distance(
+	bounds: tuple[float, float, float, float], other_bounds: tuple[float, float, float, float]
+):
+	return sum(abs(bounds[i] - other_bounds[i]) % 360 for i in range(4))
+
+
+def _make_crs_info_sort_key(bounds: tuple[float, float, float, float]):
+	def sort_key(crs_info: CRSInfo):
+		aou = crs_info.area_of_use
+		if aou is None:
+			return float('inf')
+		return bounds_distance(bounds, (aou.west, aou.south, aou.east, aou.north))
+
+	return sort_key
+
+
+def get_projected_crs(
+	bounds: tuple[float, float, float, float] | BaseGeometry | GeoSeries | GeoDataFrame,
+):
+	"""Similar to geopandas estimate_utm_crs, but doesn't necessarily use an UTM zone"""
+	if isinstance(bounds, (GeoSeries, GeoDataFrame)):
+		west, south, east, north = bounds.total_bounds
+	elif isinstance(bounds, BaseGeometry):
+		west, south, east, north = bounds.bounds
+	else:
+		west, south, east, north = bounds
+	aoi = AreaOfInterest(west, south, east, north)
+	crs_infos = query_crs_info(area_of_interest=aoi, pj_types=PJType.PROJECTED_CRS, contains=True)
+	if not crs_infos:
+		return None
+	# Most certainly a better way to do that but eh
+	crs_infos = sorted(
+		crs_infos, key=lambda info: (info.code, info.name.startswith('GDA2020')), reverse=True
+	)
+	sort_key = _make_crs_info_sort_key((west, south, east, north))
+	closest = min(crs_infos, key=sort_key)
+
+	return pyproj.CRS.from_authority(closest.auth_name, closest.code)
+
+
+def get_metric_crs(g: BaseGeometry) -> pyproj.CRS:
 	"""Returns a CRS that uses metres as its unit and that can be used with a particular geometry."""
 	# It would be more ideal if we could use geopandas estimate_utm_crs, but is it worth creating a temporary GeoSeries for that… and also would it return the same sort of result
-	point = g if isinstance(g, shapely.Point) else g.representative_point()
+	if isinstance(g, shapely.Point):
+		point = g
+	else:
+		projected = get_projected_crs(g)
+		if projected:
+			return projected
+		point = g.representative_point()
 	return pyproj.CRS(
 		f'+proj=aeqd +lat_0={point.y} +lon_0={point.x} +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs'
 	)
@@ -349,3 +398,20 @@ def contains_any_array(
 	if not isinstance(points, numpy.ndarray):
 		points = numpy.asarray(points)
 	return geo.sindex.query(points, 'within', output_format='dense').any(axis=0)
+
+
+def get_polygons(
+	geom: 'GeoDataFrame | GeoSeries | GeometryArray | BaseGeometry',
+) -> list[shapely.Polygon]:
+	"""Gets every individual polygon inside geom."""
+	if isinstance(geom, shapely.Polygon):
+		return [geom]
+	if isinstance(geom, BaseMultipartGeometry):
+		return list(chain.from_iterable(get_polygons(part) for part in geom.geoms))
+	if isinstance(geom, GeoDataFrame):
+		geom = geom.geometry
+	if not isinstance(geom, BaseGeometry):
+		# GeoSeries/array/etc
+		return list(chain.from_iterable(get_polygons(item) for item in geom.dropna()))
+	# Some other geometry, just silently return nothing
+	return []

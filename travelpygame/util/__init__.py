@@ -20,6 +20,8 @@ from .geo_utils import (
 	get_midpoint,
 	get_point_antipodes,
 	get_poly_vertices,
+	get_polygons,
+	get_projected_crs,
 	get_transform_methods,
 )
 from .io_utils import (
@@ -50,7 +52,7 @@ from .other import (
 	format_xy,
 	get_ordinal,
 )
-from .pandas_utils import find_first_matching_column, try_set_index_name_col
+from .pandas_utils import detect_cat_cols, find_first_matching_column, try_set_index_name_col
 
 __all__ = [
 	'KMLError',
@@ -62,6 +64,7 @@ __all__ = [
 	'circular_mean_points',
 	'circular_mean_xy',
 	'contains_any',
+	'detect_cat_cols',
 	'find_first_matching_column',
 	'fix_x_coord',
 	'fix_y_coord',
@@ -89,6 +92,8 @@ __all__ = [
 	'get_ordinal',
 	'get_point_antipodes',
 	'get_poly_vertices',
+	'get_polygons',
+	'get_projected_crs',
 	'get_transform_methods',
 	'haversine_distance',
 	'load_points',

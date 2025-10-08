@@ -31,3 +31,17 @@ def try_set_index_name_col[T: 'pandas.DataFrame'](df: T) -> T:
 	except ValueError as ex:
 		logger.info(ex)
 		return df
+
+
+def detect_cat_cols(df: 'pandas.DataFrame', frac_threshold: int = 2):
+	"""Quick and dirty way to detect which columns in a pandas DataFrame are probably categories, and therefore are useful groupings for stats etc. There are better ways to do this but if the user doesn't provide a list of category columns manually, this will do."""
+	dtypes = df.dtypes
+	cats = dtypes[dtypes == 'category'].index
+	geom_cols = dtypes[dtypes == 'geometry'].index
+	df = df.drop(columns=[*cats, *geom_cols])
+
+	counts = df.count(axis='index')
+	nunique = df[counts[counts > 1].index.to_list()].nunique()
+	threshold = df.index.size // frac_threshold
+	maybe_cats = nunique[(nunique > 1) & (nunique < threshold)]
+	return [*cats, *maybe_cats.index]
