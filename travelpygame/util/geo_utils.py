@@ -247,19 +247,24 @@ def get_transform_methods(from_crs: Any, to_crs: Any):
 
 
 def apply_transformed[T: 'BaseGeometry'](
-	func: Callable[..., T], g: 'BaseGeometry', crs: Any = None, *args, **kwargs
+	func: Callable[..., T],
+	g: 'BaseGeometry',
+	crs: Any = None,
+	from_crs: Any = 'WGS84',
+	*args,
+	**kwargs,
 ) -> T:
 	if not crs:
 		crs = get_metric_crs(g)
-	transform_to, transform_from = get_transform_methods('WGS84', crs)
+	transform_to, transform_from = get_transform_methods(from_crs, crs)
 	projected = transform(transform_to, g)
 	result = func(projected, *args, **kwargs)
 	return transform(transform_from, result)
 
 
-def get_centroid(g: 'BaseGeometry', crs: Any = None) -> shapely.Point:
+def get_centroid(g: 'BaseGeometry', crs: Any = None, from_crs: Any = 'WGS84') -> shapely.Point:
 	"""Gets the centroid of some points in WGS84 properly, accounting for projection by converting to a different CRS instead."""
-	return apply_transformed(shapely.centroid, g, crs)
+	return apply_transformed(shapely.centroid, g, crs, from_crs)
 
 
 def fix_x_coord(x: float) -> float:
