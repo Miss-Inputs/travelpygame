@@ -1,72 +1,19 @@
-from collections.abc import Callable, Collection
+from collections.abc import Collection
+from typing import Any
 
 import numpy
+import shapely
 from geopandas import GeoDataFrame, GeoSeries
-from shapely import Point, get_coordinates
+from shapely import Point
 
-from .util.distance import geod_distance_and_bearing, haversine_distance
+from .util.distance import get_closest_index, get_furthest_index
 
 PointSet = Collection[Point] | numpy.ndarray | GeoSeries | GeoDataFrame
 
 
-def _geod_distance(
-	lat: numpy.ndarray, lng: numpy.ndarray, target_lat: numpy.ndarray, target_lng: numpy.ndarray
-) -> numpy.ndarray:
-	return geod_distance_and_bearing(lat, lng, target_lat, target_lng)[0]
-
-
-def _to_lat_lngs(points: Collection[Point] | numpy.ndarray | GeoSeries):
-	if isinstance(points, GeoSeries):
-		lats = points.y.to_numpy()
-		lngs = points.x.to_numpy()
-	else:
-		if not isinstance(points, (numpy.ndarray, list, tuple)):
-			points = list(points)
-		lngs, lats = get_coordinates(points).T
-	return lats, lngs
-
-
-def haversine_distances(points: PointSet, target: Point):
-	if isinstance(points, GeoDataFrame):
-		points = points.geometry
-	lats, lngs = _to_lat_lngs(points)
-	n = lats.size
-	target_lat = numpy.repeat(target.y, n)
-	target_lng = numpy.repeat(target.x, n)
-	return haversine_distance(lats, lngs, target_lat, target_lng)
-
-
-def geod_distances(points: PointSet, target: Point):
-	if isinstance(points, GeoDataFrame):
-		points = points.geometry
-	lats, lngs = _to_lat_lngs(points)
-	n = lats.size
-	target_lat = numpy.repeat(target.y, n)
-	target_lng = numpy.repeat(target.x, n)
-	return geod_distance_and_bearing(lats, lngs, target_lat, target_lng)[0]
-
-
-def _get_best_pic_inner(
-	lats: numpy.ndarray,
-	lngs: numpy.ndarray,
-	target_lat: float,
-	target_lng: float,
-	dist_func: Callable[
-		[numpy.ndarray, numpy.ndarray, numpy.ndarray, numpy.ndarray], numpy.ndarray
-	],
-	*,
-	reverse: bool = False,
-) -> tuple[int, float]:
-	target_lats = numpy.repeat(target_lat, lats.size)
-	target_lngs = numpy.repeat(target_lng, lngs.size)
-	distances = dist_func(lats, lngs, target_lats, target_lngs)
-	index = distances.argmax() if reverse else distances.argmin()
-	return index.item(), distances[index].item()
-
-
 def get_best_pic(
 	pics: PointSet, target: 'Point', *, use_haversine: bool = False, reverse: bool = False
-):
+) -> tuple[Any, float]:
 	"""Finds the best pic among a collection of pics. If pics is a GeoDataFrame/GeoSeries, returns the index in that object and not the numeric index.
 
 	Arguments:
@@ -77,10 +24,13 @@ def get_best_pic(
 	if isinstance(pics, GeoDataFrame):
 		pics = pics.geometry
 
-	lats, lngs = _to_lat_lngs(pics)
-	dist_func = haversine_distance if use_haversine else _geod_distance
-	index, distance = _get_best_pic_inner(
-		lats, lngs, target.y, target.x, dist_func, reverse=reverse
+	if isinstance(pics, Collection) and not isinstance(pics, (GeoSeries, GeoDataFrame)):
+		pics = list(pics)
+	coords = shapely.get_coordinates(pics)
+	index, distance = (
+		get_furthest_index(target, coords, use_haversine=use_haversine)
+		if reverse
+		else get_closest_index(target, coords, use_haversine=use_haversine)
 	)
 	if isinstance(pics, GeoSeries):
 		index = pics.index[index]
@@ -94,9 +44,11 @@ def get_worst_point(pics: PointSet, targets: PointSet, *, use_haversine: bool = 
 	if isinstance(targets, GeoDataFrame):
 		targets = targets.geometry
 
-	lats, lngs = _to_lat_lngs(pics)
-	target_lats, target_lngs = _to_lat_lngs(targets)
-	dist_func = haversine_distance if use_haversine else _geod_distance
+	if isinstance(pics, Collection) and not isinstance(pics, GeoSeries):
+		pics = list(pics)
+	if isinstance(targets, Collection) and not isinstance(targets, GeoSeries):
+		targets = list(targets)
+	coords = shapely.get_coordinates(pics)
 
 	worst_dist = 0.0
 	worst_pic = -1  # Misnomer, just shorter than saying "closest pic for worst target"
@@ -104,15 +56,16 @@ def get_worst_point(pics: PointSet, targets: PointSet, *, use_haversine: bool = 
 	# Yeah I'm implementing max() manually basically
 	# There would still definitely be a better way to implement this, but I'm not thinky that hard right now
 	# Probably want to use a vectorized distance function here?
-	for i, (target_lat, target_lng) in enumerate(zip(target_lats, target_lngs, strict=True)):
-		pic_index, dist = _get_best_pic_inner(lats, lngs, target_lat, target_lng, dist_func)
+	items = targets.items() if isinstance(targets, GeoSeries) else enumerate(targets)
+	for target_index, target in items:
+		if not isinstance(target, Point):
+			raise TypeError(f'Target at {target_index} was {type(target)}, expected Point')
+		pic_index, dist = get_closest_index(target, coords, use_haversine=use_haversine)
 		if dist > worst_dist:
 			worst_dist = dist
-			worst_target = i
+			worst_target = target_index
 			worst_pic = pic_index
 
-	if isinstance(targets, GeoSeries):
-		worst_target = targets.index[worst_target]
 	if isinstance(pics, GeoSeries):
 		worst_pic = pics.index[worst_pic]
 	return worst_target, worst_dist, worst_pic

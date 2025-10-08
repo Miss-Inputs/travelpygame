@@ -119,9 +119,10 @@ def haversine_distance(
 	return c * r
 
 
-def _geod_distance(
+def geod_distances(
 	lat: numpy.ndarray, lng: numpy.ndarray, target_lat: numpy.ndarray, target_lng: numpy.ndarray
 ) -> numpy.ndarray:
+	"""Vectorized get_geod_distance_and_bearing that just gets the distance and not bearing (for symmetry with haversine_distance)."""
 	return geod_distance_and_bearing(lat, lng, target_lat, target_lng)[0]
 
 
@@ -145,7 +146,7 @@ def get_distances(
 		if isinstance(points, Collection) and not isinstance(points, Sequence):
 			points = list(points)
 		lngs, lats = shapely.get_coordinates(points).T
-	dist_func = _geod_distance if use_haversine else haversine_distance
+	dist_func = geod_distances if use_haversine else haversine_distance
 	if isinstance(target_point, shapely.Point):
 		target_lat = target_point.y
 		target_lng = target_point.x
@@ -186,9 +187,9 @@ def get_closest_point(
 	return min(generator, key=itemgetter(1))
 
 
-def get_closest_point_index(
+def get_closest_index(
 	target_point: shapely.Point,
-	points: Collection[shapely.Point] | shapely.MultiPoint,
+	points: Collection[shapely.Point] | shapely.MultiPoint | numpy.ndarray,
 	*,
 	use_haversine: bool = False,
 ) -> tuple[int, float]:
@@ -199,6 +200,22 @@ def get_closest_point_index(
 	"""
 	distances = get_distances(target_point, points, use_haversine=use_haversine)
 	index = distances.argmin().item()
+	return index, distances[index]
+
+
+def get_furthest_index(
+	target_point: shapely.Point,
+	points: Collection[shapely.Point] | shapely.MultiPoint | numpy.ndarray,
+	*,
+	use_haversine: bool = False,
+) -> tuple[int, float]:
+	"""Finds the index of the furthest point and the distance to it in a collection of points. Uses geodetic distance by default. If multiple points are equally close, arbitrarily returns the index of one of them.
+
+	Returns:
+		Point, distance in metres
+	"""
+	distances = get_distances(target_point, points, use_haversine=use_haversine)
+	index = distances.argmax().item()
 	return index, distances[index]
 
 
@@ -219,7 +236,7 @@ def get_closest_points(
 	lngs, lats = shapely.get_coordinates(points).T
 	target_lng = numpy.repeat(target_point.x, n)
 	target_lat = numpy.repeat(target_point.y, n)
-	dist_func = haversine_distance if use_haversine else _geod_distance
+	dist_func = haversine_distance if use_haversine else geod_distances
 	distances = dist_func(target_lat, target_lng, lats, lngs)
 	shortest = min(distances)
 	return [point for i, point in enumerate(points) if distances[i] == shortest], shortest

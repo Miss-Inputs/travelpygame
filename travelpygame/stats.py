@@ -9,7 +9,7 @@ from geopandas import GeoDataFrame, GeoSeries
 from scipy.optimize import differential_evolution
 from tqdm.auto import tqdm
 
-from .util import geod_distance, get_closest_point_index, get_distances, get_geometry_antipode
+from .util import geod_distance, get_closest_index, get_distances, get_geometry_antipode
 
 logger = logging.getLogger(__name__)
 
@@ -100,7 +100,7 @@ def get_uniqueness(points: GeoSeries | GeoDataFrame):
 			if not isinstance(point, shapely.Point):
 				raise TypeError(f'{index} was {type(point)}, expected Point')
 
-			closest_index, dists[index] = get_closest_point_index(point, other.to_numpy())
+			closest_index, dists[index] = get_closest_index(point, other.to_numpy())
 			closest[index] = other.index[closest_index]
 	return closest, dists
 
@@ -117,6 +117,6 @@ def get_uniqueness_with_groups(points: GeoDataFrame, col_name: str):
 			if not isinstance(point, shapely.Point):
 				raise TypeError(f'{index} was {type(point)}, expected Point')
 
-			closest_index, dists[index] = get_closest_point_index(point, other.geometry.to_numpy())
+			closest_index, dists[index] = get_closest_index(point, other.geometry.to_numpy())
 			closest[index] = other.index[closest_index]
 	return closest, dists
