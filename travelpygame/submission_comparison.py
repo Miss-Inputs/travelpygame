@@ -1,7 +1,9 @@
 """Functions for getting comparisons of submissions in a round, to see closest differences, etc."""
 
 import logging
+from collections.abc import Iterator
 from dataclasses import dataclass
+from itertools import pairwise
 from operator import attrgetter
 from typing import TYPE_CHECKING
 
@@ -96,6 +98,27 @@ class SubmissionDifference:
 		)
 
 
+def find_all_next_highest_placings(
+	round_: 'Round', *, by_score: bool = False, use_haversine: bool = True
+) -> Iterator[SubmissionDifference]:
+	if not round_.is_scored:
+		if by_score:
+			raise ValueError('Round is not scored, so you will want to do that yourself')
+		points = numpy.asarray([(sub.longitude, sub.latitude) for sub in round_.submissions])
+		a = get_distances((round_.latitude, round_.longitude), points, use_haversine=use_haversine)
+		subs_and_indices = sorted(enumerate(round_.submissions), key=lambda i_sub: a[i_sub[0]])
+		sorted_subs = [sub for _, sub in subs_and_indices]
+		# Doing it this way will calculate the distance twice, oh well, don't feel like refactoring right now
+	else:
+		sorted_subs = (
+			sorted(round_.submissions, key=attrgetter('score'), reverse=True)
+			if by_score
+			else sorted(round_.submissions, key=attrgetter('distance'))
+		)
+	for rival, player in pairwise(sorted_subs):
+		yield SubmissionDifference.compare(round_, player, rival, use_haversine=use_haversine)
+
+
 def find_next_highest_placing(
 	round_: 'Round', submission: 'Submission', *, by_score: bool = False, use_haversine: bool = True
 ) -> SubmissionDifference | None:
@@ -121,3 +144,37 @@ def find_next_highest_placing(
 	return SubmissionDifference.compare(
 		round_, submission, next_highest, use_haversine=use_haversine
 	)
+
+
+def compare_player_in_round(
+	round_: 'Round', name: str, *, by_score: bool = False, use_haversine: bool = True
+) -> SubmissionDifference | None:
+	try:
+		player_submission = next(sub for sub in round_.submissions if sub.name == name)
+	except StopIteration:
+		# We did not submit for this round, and that's okay
+		return None
+	return find_next_highest_placing(
+		round_, player_submission, use_haversine=use_haversine, by_score=by_score
+	)
+
+
+def find_all_closest_placings(
+	rounds: list['Round'], name: str | None, *, by_score: bool = False, use_haversine: bool = True
+) -> Iterator[SubmissionDifference]:
+	for round_ in rounds:
+		if name:
+			try:
+				player_submission = next(sub for sub in round_.submissions if sub.name == name)
+			except StopIteration:
+				# We did not submit for this round, and that's okay
+				continue
+			diff = find_next_highest_placing(
+				round_, player_submission, use_haversine=use_haversine, by_score=by_score
+			)
+			if diff:
+				yield diff
+		else:
+			yield from find_all_next_highest_placings(
+				round_, by_score=by_score, use_haversine=use_haversine
+			)
