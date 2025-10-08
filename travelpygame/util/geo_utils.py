@@ -227,7 +227,6 @@ def get_projected_crs(
 
 def get_metric_crs(g: BaseGeometry) -> pyproj.CRS:
 	"""Returns a CRS that uses metres as its unit and that can be used with a particular geometry."""
-	# It would be more ideal if we could use geopandas estimate_utm_crs, but is it worth creating a temporary GeoSeries for that… and also would it return the same sort of result
 	if isinstance(g, shapely.Point):
 		point = g
 	else:
@@ -383,6 +382,7 @@ def contains_any(
 	geo: 'GeoDataFrame | GeoSeries | GeometryArray | BaseGeometry',
 	point: shapely.Point | tuple[float, float],
 ) -> bool:
+	"""Returns a bool indicating if a point is anywhere within any part of a geometry or GeoPandas object."""
 	if isinstance(geo, BaseGeometry):
 		return (
 			shapely.contains_xy(geo, point[1], point[0]).item()
@@ -399,6 +399,7 @@ def contains_any_array(
 	geo: 'GeoDataFrame | GeoSeries | GeometryArray | BaseGeometry',
 	points: numpy.ndarray | Sequence[shapely.Point],
 ):
+	"""Returns an array of of booleans for each point, indicating whether each point is anywhere in a geometry or GeoPandas object."""
 	if isinstance(geo, BaseGeometry):
 		return geo.contains(points)
 	# Unfortunately there is no contains_properly inverse
