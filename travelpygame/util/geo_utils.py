@@ -87,17 +87,24 @@ def _geod_distance(
 
 def get_distances(
 	target_point: shapely.Point | tuple[float, float],
-	points: Collection[shapely.Point] | shapely.MultiPoint,
+	points: Collection[shapely.Point] | shapely.MultiPoint | numpy.ndarray,
 	*,
 	use_haversine: bool = False,
 ):
-	"""Finds the distances from all points in `points` to `target_point`, in the original order of points. By default, uses geodetic distance."""
-	# if isinstance(points, shapely.MultiPoint):
-	# 	# hm I thought there was a more vectorized way to get lats/lngs inside a multipoint
-	# 	points = list(points.geoms)
-	if isinstance(points, Collection) and not isinstance(points, Sequence):
-		points = list(points)
-	lngs, lats = shapely.get_coordinates(points).T
+	"""Finds the distances from all points in `points` to `target_point`, in the original order of points. By default, uses geodetic distance. If `target_point` is a tuple, it should be lat, lng."""
+	if isinstance(points, numpy.ndarray) and points.dtype.kind == 'f':
+		if points.shape[0] == 2:
+			lngs, lats = points
+		elif points.shape[1] == 2:
+			lngs, lats = points.T
+		else:
+			raise ValueError(
+				'If points is a numpy array of floats, it must be 2D, wih one axis having size 2'
+			)
+	else:
+		if isinstance(points, Collection) and not isinstance(points, Sequence):
+			points = list(points)
+		lngs, lats = shapely.get_coordinates(points).T
 	dist_func = _geod_distance if use_haversine else haversine_distance
 	if isinstance(target_point, shapely.Point):
 		target_lat = target_point.y
