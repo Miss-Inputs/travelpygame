@@ -172,6 +172,8 @@ def get_extreme_corner_points(
 	crs: Any | None = 'wgs84',
 	name: str | None = None,
 	metric_crs: Any | None = None,
+	*,
+	is_already_projected: bool = False,
 ) -> geopandas.GeoSeries:
 	"""Tries to find northwest/northeast/southeast/southwest points, by getting the closest point to each corner of the bounding box. Might not be entirely correct, and might be a bit slow. This is a different method
 
@@ -180,22 +182,30 @@ def get_extreme_corner_points(
 		crs: The CRS of the returned GeoSeries, which should be the CRS that geom's coordinates are in.
 		name: Name of geom, to append to the names of each point.
 	"""
-	if not metric_crs:
-		metric_crs = get_metric_crs(geom)
-	trans_to, trans_from = get_transform_methods(crs, metric_crs)
-	transformed = shapely.ops.transform(trans_to, geom)
-	shapely.prepare(transformed)
+	if not is_already_projected:
+		if not metric_crs:
+			metric_crs = get_metric_crs(geom)
+		trans_to, trans_from = get_transform_methods(crs, metric_crs)
+		geom = shapely.ops.transform(trans_to, geom)
+	else:
+		trans_from = None
+	shapely.prepare(geom)
 
-	minx, miny, maxx, maxy = transformed.bounds
+	minx, miny, maxx, maxy = geom.bounds
 	nw = shapely.Point(minx, maxy)
 	ne = shapely.Point(maxx, maxy)
 	se = shapely.Point(maxx, miny)
 	sw = shapely.Point(minx, miny)
 
-	nw_most = shapely.ops.transform(trans_from, shapely.ops.nearest_points(transformed, nw)[0])
-	ne_most = shapely.ops.transform(trans_from, shapely.ops.nearest_points(transformed, ne)[0])
-	se_most = shapely.ops.transform(trans_from, shapely.ops.nearest_points(transformed, se)[0])
-	sw_most = shapely.ops.transform(trans_from, shapely.ops.nearest_points(transformed, sw)[0])
+	nw_most = shapely.ops.nearest_points(geom, nw)[0]
+	ne_most = shapely.ops.nearest_points(geom, ne)[0]
+	se_most = shapely.ops.nearest_points(geom, se)[0]
+	sw_most = shapely.ops.nearest_points(geom, sw)[0]
+	if trans_from:
+		nw_most = shapely.ops.transform(trans_from, nw_most)
+		ne_most = shapely.ops.transform(trans_from, ne_most)
+		se_most = shapely.ops.transform(trans_from, se_most)
+		sw_most = shapely.ops.transform(trans_from, sw_most)
 
 	d = {
 		_maybe_prefix(name, 'northwestmost point'): nw_most,
