@@ -50,6 +50,7 @@ from .kml import (
 )
 from .other import (
 	format_area,
+	format_dataframe,
 	format_distance,
 	format_number,
 	format_ordinal,
@@ -74,6 +75,7 @@ __all__ = [
 	'fix_x_coord',
 	'fix_y_coord',
 	'format_area',
+	'format_dataframe',
 	'format_distance',
 	'format_number',
 	'format_ordinal',

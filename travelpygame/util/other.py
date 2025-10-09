@@ -1,6 +1,8 @@
+from collections.abc import Hashable, Iterable
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+	from pandas import DataFrame
 	from shapely import Point
 
 
@@ -50,3 +52,22 @@ def format_area(n: float, decimal_places: int = 6, unit: str = 'm²'):
 	if abs(n) > 1_000_000:
 		return f'{format_number(n / 1_000_000, decimal_places)}k{unit}'
 	return f'{format_number(n, decimal_places)}{unit}'
+
+
+def format_dataframe(
+	df: 'DataFrame',
+	distance_cols: Iterable[Hashable] | None = None,
+	point_cols: Iterable[Hashable] | None = None,
+	area_cols: Iterable[Hashable] | None = None,
+) -> 'DataFrame':
+	df = df.copy()
+	if distance_cols is not None:
+		for col in distance_cols:
+			df[col] = df[col].map(format_distance)
+	if point_cols is not None:
+		for col in point_cols:
+			df[col] = df[col].map(format_point)
+	if area_cols is not None:
+		for col in area_cols:
+			df[col] = df[col].map(format_area)
+	return df
