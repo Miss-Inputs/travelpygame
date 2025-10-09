@@ -10,6 +10,7 @@ from typing import Any
 
 from aiohttp import ClientSession
 from pydantic import BaseModel, TypeAdapter
+from shapely import Point
 from tqdm.auto import tqdm
 
 from travelpygame import tpg_api
@@ -40,6 +41,10 @@ class Submission(BaseModel, extra='allow'):
 	distance: float | None = None
 	"""Distance for this submission in metres from the target, or None if this is not calculated yet."""
 
+	@property
+	def point(self) -> Point:
+		return Point(self.longitude, self.latitude)
+
 
 class TPGType(StrEnum):
 	Normal = 'normal'
@@ -59,7 +64,13 @@ class RoundInfo(BaseModel, extra='allow'):
 	country_code: str | None = None
 	"""Country code, if applicable/known beforehand."""
 	latitude: float
+	"""Latitude of round target."""
 	longitude: float
+	"""Longitude of round target."""
+
+	@property
+	def target(self) -> Point:
+		return Point(self.longitude, self.latitude)
 
 
 class Round(RoundInfo):
@@ -134,7 +145,7 @@ round_list_adapter = TypeAdapter(list[Round])
 
 
 async def get_main_tpg_rounds_with_path(
-	path: Path | None = None, game: int=1, session: ClientSession | None = None
+	path: Path | None = None, game: int = 1, session: ClientSession | None = None
 ) -> list[Round]:
 	if path:
 		try:

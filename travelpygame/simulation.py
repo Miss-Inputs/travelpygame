@@ -120,9 +120,7 @@ def simulate_existing_rounds(
 			player: shapely.points([(lng, lat) for lat, lng in latlngs]).tolist()
 			for player, latlngs in get_submissions_per_user(rounds).items()
 		}
-	targets = {
-		r.name or f'Round {r.number}': shapely.Point(r.longitude, r.latitude) for r in rounds
-	}
+	targets = {r.name or f'Round {r.number}': r.target for r in rounds}
 	scoring = scoring or main_tpg_scoring
 	order = {r.name or f'Round {r.number}': r.number for r in rounds}
 	return Simulation(targets, order, pics, scoring, strategy, use_haversine=use_haversine)

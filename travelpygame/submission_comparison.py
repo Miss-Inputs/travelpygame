@@ -8,11 +8,12 @@ from operator import attrgetter
 from typing import TYPE_CHECKING
 
 import numpy
-import shapely
 
-from .util import geod_distance_and_bearing, get_distances, haversine_distance
+from .util import get_distances
 
 if TYPE_CHECKING:
+	from shapely import Point
+
 	from .tpg_data import Round, Submission
 
 logger = logging.getLogger(__name__)
@@ -22,24 +23,31 @@ logger = logging.getLogger(__name__)
 class SubmissionDifference:
 	round_name: str | None
 	"""Name of round that we are comparing."""
-	target: shapely.Point
+	target: 'Point'
 	"""Target for the round that we are comparing."""
+	round_num_players: int
+	"""Total number of submissions for this round, for the benefit of comparison."""
+
 	player: str
 	"""Name of the player who we are following the perspective of."""
-	player_pic: shapely.Point
+	player_pic: 'Point'
 	"""The location of the player's submission."""
 	player_score: float | None
 	"""The player's score in this round."""
 	player_distance: float
 	"""The player's distance to the target."""
+	player_placing: int
+	"""The player's ranking out of all submissions for that round."""
+
 	rival: str
 	"""Name of player who we are comparing to, because they are one spot above us, etc."""
-	rival_pic: shapely.Point
+	rival_pic: 'Point'
 	"""The location of the rival's submission."""
 	rival_score: float | None
 	"""The rival's score in this round."""
 	rival_distance: float
 	"""The rival's distance to the target."""
+	# rival_placing would in theory just be player_placing + 1
 
 	@property
 	def score_diff(self) -> float | None:
@@ -50,52 +58,6 @@ class SubmissionDifference:
 	@property
 	def distance_diff(self) -> float:
 		return self.player_distance - self.rival_distance
-
-	@classmethod
-	def compare(
-		cls,
-		round_: 'Round',
-		player: 'Submission',
-		rival: 'Submission',
-		*,
-		use_haversine: bool = True,
-	):
-		if player.distance is None:
-			player_dist = (
-				haversine_distance(
-					round_.latitude, round_.longitude, player.latitude, player.longitude
-				)
-				if use_haversine
-				else geod_distance_and_bearing(
-					round_.latitude, round_.longitude, player.latitude, player.longitude
-				)[0]
-			)
-		else:
-			player_dist = player.distance
-		if rival.distance is None:
-			rival_dist = (
-				haversine_distance(
-					round_.latitude, round_.longitude, rival.latitude, rival.longitude
-				)
-				if use_haversine
-				else geod_distance_and_bearing(
-					round_.latitude, round_.longitude, rival.latitude, rival.longitude
-				)[0]
-			)
-		else:
-			rival_dist = rival.distance
-		return cls(
-			round_.name,
-			shapely.Point(round_.longitude, round_.latitude),
-			player.name,
-			shapely.Point(player.longitude, player.latitude),
-			player.score,
-			player_dist,
-			rival.name,
-			shapely.Point(rival.longitude, rival.latitude),
-			rival.score,
-			rival_dist,
-		)
 
 
 def find_all_next_highest_placings(
@@ -115,8 +77,23 @@ def find_all_next_highest_placings(
 			if by_score
 			else sorted(round_.submissions, key=attrgetter('distance'))
 		)
-	for rival, player in pairwise(sorted_subs):
-		yield SubmissionDifference.compare(round_, player, rival, use_haversine=use_haversine)
+	for i, (rival, player) in enumerate(pairwise(sorted_subs), 2):
+		assert player.distance is not None, 'player.distance is None'
+		assert rival.distance is not None, 'rival.distance is None'
+		yield SubmissionDifference(
+			round_.name,
+			round_.target,
+			len(sorted_subs),
+			player.name,
+			player.point,
+			player.score,
+			player.distance,
+			i,
+			rival.name,
+			rival.point,
+			rival.score,
+			rival.distance,
+		)
 
 
 def find_next_highest_placing(
@@ -127,9 +104,9 @@ def find_next_highest_placing(
 			raise ValueError('Round is not scored, so you will want to do that yourself')
 		points = numpy.asarray([(sub.longitude, sub.latitude) for sub in round_.submissions])
 		a = get_distances((round_.latitude, round_.longitude), points, use_haversine=use_haversine)
-		subs_and_indices = sorted(enumerate(round_.submissions), key=lambda i_sub: a[i_sub[0]])
-		sorted_subs = [sub for _, sub in subs_and_indices]
-		# Doing it this way will calculate the distance twice, oh well, don't feel like refactoring right now
+		for i in range(len(round_.submissions)):
+			round_.submissions[i].distance = a[i]
+		sorted_subs = sorted(round_.submissions, key=attrgetter('distance'))
 	else:
 		sorted_subs = (
 			sorted(round_.submissions, key=attrgetter('score'), reverse=True)
@@ -141,8 +118,21 @@ def find_next_highest_placing(
 		# You won! That's allowed
 		return None
 	next_highest = sorted_subs[index - 1]
-	return SubmissionDifference.compare(
-		round_, submission, next_highest, use_haversine=use_haversine
+	assert submission.distance is not None, 'submission.distance is None'
+	assert next_highest.distance is not None, 'next_highest.distance is None'
+	return SubmissionDifference(
+		round_.name,
+		round_.target,
+		len(sorted_subs),
+		submission.name,
+		submission.point,
+		submission.score,
+		submission.distance,
+		index + 1,
+		next_highest.name,
+		next_highest.point,
+		next_highest.score,
+		next_highest.distance,
 	)
 
 

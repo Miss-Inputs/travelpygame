@@ -1,7 +1,9 @@
 """Tools to help find what adding new pics would do"""
 
 import logging
-from collections.abc import Collection, Hashable, Sequence
+from bisect import bisect
+from collections.abc import Collection, Hashable, Iterator, Sequence
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -12,7 +14,8 @@ from shapely import Point
 from tqdm.auto import tqdm
 
 from .best_pics import PointSet, get_best_pic
-from .tpg_data import load_rounds
+from .submission_comparison import compare_player_in_round
+from .tpg_data import Round, load_rounds
 from .util.distance import get_distances
 from .util.io_utils import load_points
 from .util.kml import parse_submission_kml
@@ -46,7 +49,7 @@ def _load_points_or_rounds_single(path: Path):
 	if ext == 'json':
 		rounds = load_rounds(path)
 		return geopandas.GeoDataFrame(
-			[{'name': r.name, 'geometry': Point(r.longitude, r.latitude)} for r in rounds],
+			[{'name': r.name, 'geometry': r.target} for r in rounds],
 			geometry='geometry',
 			crs='wgs84',
 		)
@@ -92,7 +95,7 @@ def find_if_new_pics_better(
 	return pandas.DataFrame.from_dict(results, 'index')
 
 
-def find_new_pic_diff(
+def find_new_pic_diffs(
 	points: PointSet,
 	new_point: Point,
 	targets: PointSet,
@@ -139,7 +142,7 @@ def find_new_pic_diff(
 def find_new_pics_better_individually(
 	points: PointSet, new_points: PointSet, targets: PointSet, *, use_haversine: bool = False
 ) -> pandas.DataFrame:
-	"""For each new point in `new_points`: Finds how often that new point was closer to a point in `targets` compared to `points`, and the total reduction in distance. This function's name kinda sucks."""
+	"""For each new point in `new_points`: Finds how often that new point was closer to a point in `targets` compared to `points`, and the total reduction in distance. This function's name kinda sucks, and it is also a tad convoluted and its purpose is also a bit murky, so it may be rewritten mercilessly or removed in future."""
 	if isinstance(new_points, GeoDataFrame):
 		new_points = new_points.geometry
 	if isinstance(targets, GeoDataFrame):
@@ -189,3 +192,104 @@ def find_new_pics_better_individually(
 				'mean': improvements.mean(),
 			}
 	return pandas.DataFrame.from_dict(results, 'index')
+
+
+@dataclass
+class DistanceImprovement:
+	"""Represents an instance of a new pic improving your distance to some kind of target."""
+
+	target_name: str | None
+	"""Name of the target, round, etc. if applicable."""
+	target: Point
+	"""Location of the target."""
+	old_location_name: str | None
+	"""Name of previous location that was closest, if applicable."""
+	old_location: Point
+	old_distance: float
+	new_location_name: str | None
+	"""Name of new location that would be closest, if applicable."""
+	new_location: Point
+	"""New location to be evaluated that is closer than old_location."""
+	new_distance: float
+
+	@property
+	def amount(self):
+		return self.old_distance - self.new_distance
+
+
+def find_improvements_in_round(
+	round_: Round,
+	player_name: str,
+	new_pics: PointSet,
+	distance_required: float | None = None,
+	*,
+	use_haversine: bool = True,
+) -> Iterator[DistanceImprovement]:
+	"""Finds where a previous round could have been improved by at least one place if any of new_pics was available at the time.
+
+	Arguments:
+		round_: Rounds from TPG data, preferably already scored (or had distance calculated).
+		player_name: Player's name, if None, results might not entirely make sense (it would return something like every time anyone's submission at all gets improved by something in new_pics), but it's technically possible to do that.
+		new_points: Set of hypothetical new locations to evaluate.
+		distance_required: Only count if it is above this distance.
+		use_haversine: If true, use haversine distance to calculate the distances from new_pics, as well as the existing round distances if it has not been scored, otherwise use WGS84 geodetic distance.
+	"""
+
+	if isinstance(new_pics, GeoDataFrame):
+		new_pics = new_pics.geometry
+	if isinstance(new_pics, Collection) and not isinstance(new_pics, (Sequence, GeoSeries)):
+		new_pics = list(new_pics)
+	submission_diff = compare_player_in_round(round_, player_name, use_haversine=use_haversine)
+	if submission_diff is None:
+		return
+	new_distances = get_distances(submission_diff.target, new_pics, use_haversine=use_haversine)
+	for i in range(len(new_distances)):
+		new_distance = new_distances[i]
+		if new_distance >= submission_diff.rival_distance:
+			continue
+		if distance_required is not None and new_distance >= distance_required:
+			continue
+		new_name = new_pics.index[i] if isinstance(new_pics, GeoSeries) else None
+		new_loc = new_pics.iloc[i] if isinstance(new_pics, GeoSeries) else new_pics[i]
+		assert isinstance(new_loc, Point), f'new_loc was {type(new_loc)}, expected Point'
+		yield DistanceImprovement(
+			submission_diff.round_name,
+			submission_diff.target,
+			None,
+			submission_diff.player_pic,
+			submission_diff.player_distance,
+			new_name if isinstance(new_name, str) else None,
+			new_loc,
+			new_distance,
+		)
+
+
+def find_rounds_improved(
+	rounds: list[Round], player_name: str, new_pics: PointSet, *, use_haversine: bool = True
+) -> Iterator[DistanceImprovement]:
+	"""Finds where previous rounds could have been improved by at least one place if any of new_pics was available at the time.
+
+	Arguments:
+		rounds: Rounds from TPG data, preferably already scored (or had distance calculated).
+		player_name: Player's name
+		new_points: Set of hypothetical new locations to evaluate.
+		distance_required: Only count if it is above this distance.
+	"""
+	if isinstance(new_pics, GeoDataFrame):
+		new_pics = new_pics.geometry
+	if isinstance(new_pics, Collection) and not isinstance(new_pics, (Sequence, GeoSeries)):
+		new_pics = list(new_pics)
+
+	for round_ in rounds:
+		yield from find_improvements_in_round(
+			round_, player_name, new_pics, use_haversine=use_haversine
+		)
+
+
+def new_distance_rank(distance: float, round_: Round) -> int:
+	"""Assumes round is already scored!"""
+	distances = [sub.distance for sub in round_.submissions if sub.distance is not None]
+	if not distances:
+		return 1
+	distances.sort()
+	return bisect(distances, distance) + 1
