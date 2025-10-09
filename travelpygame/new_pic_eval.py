@@ -264,7 +264,7 @@ def find_improvements_in_round(
 		)
 
 
-def find_rounds_improved(
+def find_improvements_in_rounds(
 	rounds: list[Round], player_name: str, new_pics: PointSet, *, use_haversine: bool = True
 ) -> Iterator[DistanceImprovement]:
 	"""Finds where previous rounds could have been improved by at least one place if any of new_pics was available at the time.
