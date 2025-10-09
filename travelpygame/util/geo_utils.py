@@ -106,6 +106,7 @@ def get_projected_crs(
 		west, south, east, north = bounds
 	aoi = AreaOfInterest(west, south, east, north)
 	crs_infos = query_crs_info(area_of_interest=aoi, pj_types=PJType.PROJECTED_CRS, contains=True)
+	crs_infos = [info for info in crs_infos if info.auth_name != 'IAU_2015']
 	if not crs_infos:
 		return None
 	# Most certainly a better way to do that but eh
