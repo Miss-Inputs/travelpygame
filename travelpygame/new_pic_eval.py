@@ -13,7 +13,7 @@ from tqdm.auto import tqdm
 
 from .best_pics import PointSet, get_best_pic
 from .tpg_data import load_rounds
-from .util.distance import geod_distance, get_distances, haversine_distance
+from .util.distance import get_distances
 from .util.io_utils import load_points
 from .util.kml import parse_submission_kml
 
@@ -103,9 +103,15 @@ def find_new_pic_diff(
 	"""Finds the differences in the best distances from a set of points to targets, and a new point to each target, and whether that is better."""
 	if isinstance(targets, GeoDataFrame):
 		targets = targets.geometry
+	if isinstance(targets, Collection) and not isinstance(targets, (Sequence, GeoSeries)):
+		targets = list(targets)
 
 	total, items = _to_items(targets)
-	# TODO: Whoops I should be using vectorized distance functions for new_point -> targets
+	new_point_distances = get_distances(new_point, targets, use_haversine=use_haversine)
+	new_point_distance = pandas.Series(
+		new_point_distances, index=targets.index if isinstance(targets, GeoSeries) else None
+	)
+
 	results = {}
 	with tqdm(
 		items, 'Finding distances for current points and new point', total, disable=not use_tqdm
@@ -118,11 +124,7 @@ def find_new_pic_diff(
 				continue
 			t.set_postfix(index=index)
 			point, distance = get_best_pic(points, target, use_haversine=use_haversine)
-			new_dist = (
-				haversine_distance(new_point.y, new_point.x, target.y, target.x)
-				if use_haversine
-				else geod_distance(new_point, target)
-			)
+			new_dist = new_point_distance[index]  # pyright: ignore[reportArgumentType, reportCallIssue]
 			diff = distance - new_dist
 			results[index] = {
 				'current_best': point,

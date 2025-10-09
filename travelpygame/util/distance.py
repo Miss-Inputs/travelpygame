@@ -8,6 +8,7 @@ import numpy
 import pandas
 import pyproj
 import shapely
+from geopandas import GeoSeries
 
 wgs84_geod = pyproj.Geod(ellps='WGS84')
 
@@ -128,7 +129,7 @@ def geod_distances(
 
 def get_distances(
 	target_point: shapely.Point | tuple[float, float],
-	points: Collection[shapely.Point] | shapely.MultiPoint | numpy.ndarray,
+	points: Collection[shapely.Point] | shapely.MultiPoint | numpy.ndarray | GeoSeries,
 	*,
 	use_haversine: bool = False,
 ):
@@ -143,7 +144,7 @@ def get_distances(
 				'If points is a numpy array of floats, it must be 2D, wih one axis having size 2'
 			)
 	else:
-		if isinstance(points, Collection) and not isinstance(points, Sequence):
+		if isinstance(points, Collection) and not isinstance(points, (Sequence, GeoSeries)):
 			points = list(points)
 		lngs, lats = shapely.get_coordinates(points).T
 	dist_func = geod_distances if use_haversine else haversine_distance
