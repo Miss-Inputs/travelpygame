@@ -59,8 +59,11 @@ def format_dataframe(
 	distance_cols: Iterable[Hashable] | None = None,
 	point_cols: Iterable[Hashable] | None = None,
 	area_cols: Iterable[Hashable] | None = None,
+	*,
+	copy: bool = True,
 ) -> 'DataFrame':
-	df = df.copy()
+	if copy:
+		df = df.copy()
 	if distance_cols is not None:
 		for col in distance_cols:
 			df[col] = df[col].map(format_distance)
