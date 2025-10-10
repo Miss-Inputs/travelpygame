@@ -170,7 +170,7 @@ def fix_x_coord(x: float) -> float:
 	x %= 360
 	if x > 180:
 		return x - 360
-	if x <= 180:
+	if x <= -180:
 		return x + 360
 	return x
 
@@ -179,7 +179,7 @@ def fix_y_coord(y: float) -> float:
 	y %= 180
 	if y > 90:
 		return y - 180
-	if y <= 90:
+	if y <= -90:
 		return y + 180
 	return y
 
