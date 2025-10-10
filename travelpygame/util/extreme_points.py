@@ -182,6 +182,7 @@ def get_extreme_corner_points(
 		crs: The CRS of the returned GeoSeries, which should be the CRS that geom's coordinates are in.
 		name: Name of geom, to append to the names of each point.
 	"""
+	minx, miny, maxx, maxy = geom.bounds
 	if not is_already_projected:
 		if not metric_crs:
 			metric_crs = get_metric_crs(geom)
@@ -189,13 +190,18 @@ def get_extreme_corner_points(
 		geom = shapely.ops.transform(trans_to, geom)
 	else:
 		trans_from = None
+		trans_to = None
 	shapely.prepare(geom)
 
-	minx, miny, maxx, maxy = geom.bounds
 	nw = shapely.Point(minx, maxy)
 	ne = shapely.Point(maxx, maxy)
 	se = shapely.Point(maxx, miny)
 	sw = shapely.Point(minx, miny)
+	if trans_to:
+		nw = shapely.ops.transform(trans_to, nw)
+		ne = shapely.ops.transform(trans_to, ne)
+		se = shapely.ops.transform(trans_to, se)
+		sw = shapely.ops.transform(trans_to, sw)
 
 	nw_most = shapely.ops.nearest_points(geom, nw)[0]
 	ne_most = shapely.ops.nearest_points(geom, ne)[0]

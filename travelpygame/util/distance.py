@@ -237,7 +237,7 @@ def get_closest_points(
 	points: 'Sequence[shapely.Point] | shapely.MultiPoint | numpy.ndarray',
 	*,
 	use_haversine: bool = False,
-):
+) -> tuple[list[shapely.Point], float]:
 	"""Finds the closest point(s) and the distance to them in a collection of points. Uses geodetic distance by default.
 
 	Returns:
@@ -251,5 +251,5 @@ def get_closest_points(
 	target_lat = numpy.repeat(target_point.y, n)
 	dist_func = haversine_distance if use_haversine else geod_distances
 	distances = dist_func(target_lat, target_lng, lats, lngs)
-	shortest = min(distances)
+	shortest = distances.min().item()
 	return [point for i, point in enumerate(points) if distances[i] == shortest], shortest
