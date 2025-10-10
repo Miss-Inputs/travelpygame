@@ -1,4 +1,4 @@
-from collections.abc import Hashable, Iterable
+from collections.abc import Callable, Hashable, Iterable
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -54,23 +54,29 @@ def format_area(n: float, decimal_places: int = 6, unit: str = 'm²'):
 	return f'{format_number(n, decimal_places)}{unit}'
 
 
+def _format_dataframe_inner(
+	df: 'DataFrame', cols: Iterable[Hashable] | Hashable | None, formatter: Callable[..., str]
+):
+	if cols is None:
+		return
+	if isinstance(cols, Iterable) and not isinstance(cols, (str, bytes)):
+		for col in cols:
+			df[col] = df[col].map(formatter)
+	else:
+		df[cols] = df[cols].map(formatter)
+
+
 def format_dataframe(
 	df: 'DataFrame',
-	distance_cols: Iterable[Hashable] | None = None,
-	point_cols: Iterable[Hashable] | None = None,
-	area_cols: Iterable[Hashable] | None = None,
+	distance_cols: Iterable[Hashable] | Hashable | None = None,
+	point_cols: Iterable[Hashable] | Hashable | None = None,
+	area_cols: Iterable[Hashable] | Hashable | None = None,
 	*,
 	copy: bool = True,
 ) -> 'DataFrame':
 	if copy:
 		df = df.copy()
-	if distance_cols is not None:
-		for col in distance_cols:
-			df[col] = df[col].map(format_distance)
-	if point_cols is not None:
-		for col in point_cols:
-			df[col] = df[col].map(format_point)
-	if area_cols is not None:
-		for col in area_cols:
-			df[col] = df[col].map(format_area)
+	_format_dataframe_inner(df, distance_cols, format_distance)
+	_format_dataframe_inner(df, point_cols, format_point)
+	_format_dataframe_inner(df, area_cols, format_area)
 	return df
