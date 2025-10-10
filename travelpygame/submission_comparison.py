@@ -139,9 +139,8 @@ def find_next_highest_placing(
 def compare_player_in_round(
 	round_: 'Round', name: str, *, by_score: bool = False, use_haversine: bool = True
 ) -> SubmissionDifference | None:
-	try:
-		player_submission = next(sub for sub in round_.submissions if sub.name == name)
-	except StopIteration:
+	player_submission = round_.find_player(name)
+	if not player_submission:
 		# We did not submit for this round, and that's okay
 		return None
 	return find_next_highest_placing(
@@ -154,9 +153,8 @@ def find_all_closest_placings(
 ) -> Iterator[SubmissionDifference]:
 	for round_ in rounds:
 		if name:
-			try:
-				player_submission = next(sub for sub in round_.submissions if sub.name == name)
-			except StopIteration:
+			player_submission = round_.find_player(name)
+			if not player_submission:
 				# We did not submit for this round, and that's okay
 				continue
 			diff = find_next_highest_placing(

@@ -79,6 +79,9 @@ class Round(RoundInfo):
 	@property
 	def is_scored(self) -> bool:
 		return all(sub.score is not None for sub in self.submissions)
+	
+	def find_player(self, name: str):
+		return next((sub for sub in self.submissions if sub.name == name), None)
 
 
 def _convert_submission(
