@@ -112,7 +112,7 @@ def get_projected_crs(
 	)
 	sort_key = _make_crs_info_sort_key((west, south, east, north))
 	crs_infos = sorted(crs_infos, key=sort_key)
-	valid_ellipses = pyproj.get_ellps_map().keys()
+	valid_ellipses = pyproj.get_ellps_map().keys() | {'GRS 1980'}
 	# This seems to have all the _earth_ ellipsoids
 	for crs_info in crs_infos:
 		crs = pyproj.CRS.from_authority(crs_info.auth_name, crs_info.code)
