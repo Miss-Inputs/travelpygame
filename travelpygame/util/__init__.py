@@ -8,7 +8,11 @@ from .distance import (
 	haversine_distance,
 	wgs84_geod,
 )
-from .extreme_points import get_extreme_corner_points, get_extreme_points
+from .extreme_points import (
+	get_extreme_corner_points,
+	get_extreme_corners_of_point_set,
+	get_extreme_points,
+)
 from .geo_utils import (
 	apply_transformed,
 	circular_mean,
@@ -94,6 +98,7 @@ __all__ = [
 	'get_closest_points',
 	'get_distances',
 	'get_extreme_corner_points',
+	'get_extreme_corners_of_point_set',
 	'get_extreme_points',
 	'get_geometry_antipode',
 	'get_metric_crs',

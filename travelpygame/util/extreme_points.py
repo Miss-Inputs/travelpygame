@@ -215,3 +215,33 @@ def get_extreme_corner_points(
 	}
 	gs = geopandas.GeoSeries(d, crs=crs)
 	return _drop_duplicates(gs)
+
+
+def get_extreme_corners_of_point_set(gs: geopandas.GeoSeries):
+	"""Special case where get_extreme_corner_vertices would otherwise be used, but just gets the indexes of the points in `gs` that are closest to corners of the bounding box.
+
+	Returns:
+		northwestmost index, northeastmost index, southeastmost index, southwestmost index
+	"""
+	minx, miny, maxx, maxy = gs.total_bounds
+
+	coords = shapely.get_coordinates(gs)
+	x, y = coords.T
+	n = len(coords)
+
+	min_x = numpy.repeat(minx, n)
+	max_x = numpy.repeat(maxx, n)
+	min_y = numpy.repeat(miny, n)
+	max_y = numpy.repeat(maxy, n)
+
+	nw_distances = geod_distance_and_bearing(max_y, min_x, y, x)[0]
+	ne_distances = geod_distance_and_bearing(max_y, max_x, y, x)[0]
+	se_distances = geod_distance_and_bearing(min_y, max_x, y, x)[0]
+	sw_distances = geod_distance_and_bearing(min_y, min_x, y, x)[0]
+
+	nw_most = nw_distances.argmin().item()
+	ne_most = ne_distances.argmin().item()
+	se_most = se_distances.argmin().item()
+	sw_most = sw_distances.argmin().item()
+
+	return gs.index[nw_most], gs.index[ne_most], gs.index[se_most], gs.index[sw_most]
