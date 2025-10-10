@@ -61,9 +61,21 @@ def geod_distance_and_bearing(
 	return (dist, bearing)
 
 
-def geod_distance(point1: shapely.Point, point2: shapely.Point) -> float:
-	"""Returns WGS84 geodesic distance between point1 and point2 (assumed to be WGS84 coordinates) in metres."""
-	return geod_distance_and_bearing(point1.y, point1.x, point2.y, point2.x)[0]
+def geod_distance(
+	point1: shapely.Point | tuple[float, float], point2: shapely.Point | tuple[float, float]
+) -> float:
+	"""Returns WGS84 geodesic distance between point1 and point2 (assumed to be WGS84 coordinates) in metres. If any arguments are specified as tuples, they are (lat, lng), not the other way around."""
+	if isinstance(point1, shapely.Point):
+		lat1 = point1.y
+		lng1 = point1.x
+	else:
+		lat1, lng1 = point1
+	if isinstance(point2, shapely.Point):
+		lat2 = point2.y
+		lng2 = point2.x
+	else:
+		lat2, lng2 = point2
+	return geod_distance_and_bearing(lat1, lng1, lat2, lng2)[0]
 
 
 @overload

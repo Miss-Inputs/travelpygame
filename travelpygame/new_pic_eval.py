@@ -287,7 +287,11 @@ def find_improvements_in_rounds(
 
 
 def new_distance_rank(distance: float, round_: Round) -> int:
-	"""Assumes round is already scored!"""
+	"""Finds what ranking a disttance would get in a round (if it was based purely on distance). Assumes round is already scored!
+
+	Returns:
+		New ranking, which is effectively a 1-based index for submissions sorted by distance
+	"""
 	distances = [sub.distance for sub in round_.submissions if sub.distance is not None]
 	if not distances:
 		return 1

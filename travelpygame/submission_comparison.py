@@ -1,6 +1,7 @@
 """Functions for getting comparisons of submissions in a round, to see closest differences, etc."""
 
 import logging
+from bisect import bisect
 from collections.abc import Iterator
 from dataclasses import dataclass
 from itertools import pairwise
@@ -8,6 +9,8 @@ from operator import attrgetter
 from typing import TYPE_CHECKING
 
 import numpy
+
+from travelpygame.util.distance import geod_distance, haversine_distance
 
 from .util import get_distances
 
@@ -74,7 +77,6 @@ def find_all_next_highest_placings(
 		a = get_distances((round_.latitude, round_.longitude), points, use_haversine=use_haversine)
 		subs_and_indices = sorted(enumerate(round_.submissions), key=lambda i_sub: a[i_sub[0]])
 		sorted_subs = [sub for _, sub in subs_and_indices]
-		# Doing it this way will calculate the distance twice, oh well, don't feel like refactoring right now
 	else:
 		sorted_subs = (
 			sorted(round_.submissions, key=attrgetter('score'), reverse=True)
@@ -174,3 +176,48 @@ def find_all_closest_placings(
 			yield from find_all_next_highest_placings(
 				round_, by_score=by_score, use_haversine=use_haversine
 			)
+
+
+def find_new_next_highest_distance(
+	round_: 'Round',
+	name: str,
+	new_point: 'Point',
+	new_distance: float|None=None,
+	new_rank: int | None=None,
+	new_pic_desc: str | None=None,
+	*,
+	use_haversine: bool,
+) -> SubmissionDifference | None:
+	"""Finds a new SubmissionDifference for a new point/distance in a round. Ignores score entirely. Returns None if new_point would mean the player wins the round (and hence hs no next highest/rival). If new_distance/new_rival are None, they will be recalculated automatically."""
+	if not round_.is_scored:
+		points = numpy.asarray([(sub.longitude, sub.latitude) for sub in round_.submissions])
+		a = get_distances((round_.latitude, round_.longitude), points, use_haversine=use_haversine)
+		subs_and_indices = sorted(enumerate(round_.submissions), key=lambda i_sub: a[i_sub[0]])
+		sorted_subs = [sub for _, sub in subs_and_indices]
+	else:
+		sorted_subs = sorted(round_.submissions, key=attrgetter('distance'))
+	distances = [sub.distance for sub in round_.submissions if sub.distance is not None]
+	if new_distance is None:
+		new_distance = haversine_distance(round_.latitude, round_.longitude, new_point.y, new_point.x) if use_haversine else geod_distance((round_.latitude, round_.longitude), new_point)
+	if new_rank is None:
+		new_rank = bisect(distances, new_distance) + 1
+	if new_rank == 1:
+		return None
+	new_rival = sorted_subs[new_rank - 2] #remember, new_rank is a 1-based index
+	assert new_rival.distance is not None, 'new_rival.distance is None'
+	return SubmissionDifference(
+		round_.name,
+		round_.target,
+		len(sorted_subs),
+		name,
+		new_point,
+		new_pic_desc,
+		None,
+		new_distance,
+		new_rank,
+		new_rival.name,
+		new_rival.point,
+		new_rival.description,
+		new_rival.score,
+		new_rival.distance
+	)
