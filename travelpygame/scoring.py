@@ -172,8 +172,12 @@ def _count_medals(medals: Mapping[str, Collection[Medal]]):
 
 
 def _add_totals(df: pandas.DataFrame, *, ascending: bool):
-	df.insert(0, 'Total', df.sum(axis='columns'))
-	df.insert(1, 'Average', df['Total'] / df.columns.size)
+	total = df.sum(axis='columns')
+	mean = df.mean(axis='columns', skipna=True)
+	stdev = df.std(axis='columns', skipna=True)
+	df.insert(0, 'Total', total)
+	df.insert(1, 'Average', mean)
+	df.insert(2, 'Stdev', stdev)
 	return df.sort_values('Total', ascending=ascending)
 
 
