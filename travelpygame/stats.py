@@ -4,6 +4,7 @@ import logging
 from collections.abc import Collection, Hashable
 
 import numpy
+import pandas
 import shapely
 from geopandas import GeoDataFrame, GeoSeries
 from scipy.optimize import differential_evolution
@@ -93,7 +94,7 @@ def get_uniqueness(points: GeoSeries | GeoDataFrame):
 
 	closest: dict[Hashable, Hashable] = {}
 	dists: dict[Hashable, float] = {}
-	with tqdm(points.items(), 'Getting uniqueness', points.size, unit='point') as t:
+	with tqdm(points.items(), 'Getting uniqueness', points.size, unit='point', leave=False) as t:
 		for index, point in t:
 			t.set_postfix(point=index)
 			other = points.drop(index)
@@ -103,6 +104,27 @@ def get_uniqueness(points: GeoSeries | GeoDataFrame):
 			closest_index, dists[index] = get_closest_index(point, other.to_numpy())
 			closest[index] = other.index[closest_index]
 	return closest, dists
+
+
+def get_total_uniqueness(points: GeoSeries | GeoDataFrame):
+	"""Finds the total distance of each point to all other points."""
+	if isinstance(points, GeoDataFrame):
+		points = points.geometry
+
+	total_dists: dict[Hashable, float] = {}
+	with tqdm(
+		points.items(), 'Getting total uniqueness', points.size, unit='point', leave=False
+	) as t:
+		for index, point in t:
+			t.set_postfix(point=index)
+			other = points.drop(index)
+			if not isinstance(point, shapely.Point):
+				raise TypeError(f'{index} was {type(point)}, expected Point')
+
+			distances = get_distances(point, other.to_numpy())
+			total_dists[index] = distances.sum().item()
+	total_uniqueness = pandas.Series(total_dists, name='total_uniqueness')
+	return total_uniqueness.sort_values(ascending=False)
 
 
 def get_uniqueness_with_groups(points: GeoDataFrame, col_name: str):
