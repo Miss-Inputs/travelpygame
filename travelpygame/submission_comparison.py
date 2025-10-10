@@ -32,6 +32,8 @@ class SubmissionDifference:
 	"""Name of the player who we are following the perspective of."""
 	player_pic: 'Point'
 	"""The location of the player's submission."""
+	player_pic_description: str | None
+	"""The description of the player's submission, if known."""
 	player_score: float | None
 	"""The player's score in this round."""
 	player_distance: float
@@ -43,6 +45,8 @@ class SubmissionDifference:
 	"""Name of player who we are comparing to, because they are one spot above us, etc."""
 	rival_pic: 'Point'
 	"""The location of the rival's submission."""
+	rival_pic_description: str | None
+	"""The description of the rival's submission, if known."""
 	rival_score: float | None
 	"""The rival's score in this round."""
 	rival_distance: float
@@ -86,11 +90,13 @@ def find_all_next_highest_placings(
 			len(sorted_subs),
 			player.name,
 			player.point,
+			player.description,
 			player.score,
 			player.distance,
 			i,
 			rival.name,
 			rival.point,
+			rival.description,
 			rival.score,
 			rival.distance,
 		)
@@ -126,11 +132,13 @@ def find_next_highest_placing(
 		len(sorted_subs),
 		submission.name,
 		submission.point,
+		submission.description,
 		submission.score,
 		submission.distance,
 		index + 1,
 		next_highest.name,
 		next_highest.point,
+		next_highest.description,
 		next_highest.score,
 		next_highest.distance,
 	)
