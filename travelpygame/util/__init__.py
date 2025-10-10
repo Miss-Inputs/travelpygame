@@ -33,6 +33,7 @@ from .geo_utils import (
 	get_polygons,
 	get_projected_crs,
 	get_transform_methods,
+	mean_points,
 )
 from .io_utils import (
 	geodataframe_to_csv,
@@ -112,6 +113,7 @@ __all__ = [
 	'haversine_distance',
 	'load_points',
 	'load_points_async',
+	'mean_points',
 	'output_geodataframe',
 	'parse_submission_kml',
 	'read_dataframe',

@@ -63,10 +63,7 @@ def get_antipodes(lats: 'numpy.ndarray', lngs: 'numpy.ndarray'):
 
 def get_point_antipodes(points: Iterable[shapely.Point] | GeoSeries):
 	"""Vectorized version of get_geometry_antipodes"""
-	if isinstance(points, GeoSeries):
-		lats = points.y.to_numpy()
-		lngs = points.x.to_numpy()
-	elif isinstance(points, (numpy.ndarray, list, tuple)):
+	if isinstance(points, (numpy.ndarray, list, tuple, GeoSeries)):
 		lngs, lats = shapely.get_coordinates(points).T
 	else:
 		lats_tuple, lngs_tuple = zip(((point.y, point.x) for point in points), strict=True)
@@ -217,11 +214,22 @@ def circular_mean_xy(x: Iterable[float], y: Iterable[float]) -> tuple[float, flo
 	return mean_x, mean_y
 
 
-def circular_mean_points(points: Iterable[shapely.Point]) -> shapely.Point:
-	"""points is assumed to be convertible to numpy.ndarray!"""
-	x, y = zip(*((a.x, a.y) for a in points), strict=True)
+def circular_mean_points(points: Sequence[BaseGeometry] | GeoSeries | numpy.ndarray) -> shapely.Point:
+	"""Returns the point with coordinates being the circular mean of all coordinates in points."""
+	coords = shapely.get_coordinates(points)
+	x, y = coords.T
 	mean_x, mean_y = circular_mean_xy(x, y)
 	return shapely.Point(mean_x, mean_y)
+
+
+def mean_points(points: Sequence[BaseGeometry] | GeoSeries | numpy.ndarray) -> shapely.Point:
+	"""Returns a point with the lat being the mean of each point's latitude, and longitude being the mean of each point's longitude, etc. without any circular business."""
+	coords = shapely.get_coordinates(points)
+	#This could even support include_z and include_m if we really wanted
+	mean = coords.mean(axis=0)
+	mean[0] = fix_x_coord(mean[0])
+	mean[1] = fix_y_coord(mean[1])
+	return shapely.Point(mean)
 
 
 def geod_buffer_as_line(
@@ -328,7 +336,10 @@ def get_polygons(
 	# Some other geometry, just silently return nothing
 	return []
 
-def find_first_geom_index(gdf: GeoDataFrame|GeoSeries, geom: 'BaseGeometry', tolerance: float |None= 1e-6):
+
+def find_first_geom_index(
+	gdf: GeoDataFrame | GeoSeries, geom: 'BaseGeometry', tolerance: float | None = 1e-6
+):
 	if isinstance(gdf, GeoDataFrame):
 		gdf = gdf.geometry
 	if geom in gdf or tolerance is None:
