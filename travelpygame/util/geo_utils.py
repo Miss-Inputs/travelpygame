@@ -327,3 +327,14 @@ def get_polygons(
 		return list(chain.from_iterable(get_polygons(item) for item in geom.dropna()))
 	# Some other geometry, just silently return nothing
 	return []
+
+def find_first_geom_index(gdf: GeoDataFrame|GeoSeries, geom: 'BaseGeometry', tolerance: float |None= 1e-6):
+	if isinstance(gdf, GeoDataFrame):
+		gdf = gdf.geometry
+	if geom in gdf or tolerance is None:
+		rows = gdf[gdf == geom]
+	else:
+		rows = gdf[gdf.geom_equals_exact(geom, tolerance)]
+	if rows.empty:
+		return None
+	return rows.index[0]
