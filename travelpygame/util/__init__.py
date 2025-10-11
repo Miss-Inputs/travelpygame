@@ -8,11 +8,6 @@ from .distance import (
 	haversine_distance,
 	wgs84_geod,
 )
-from .extreme_points import (
-	get_extreme_corner_points,
-	get_extreme_corners_of_point_set,
-	get_extreme_points,
-)
 from .geo_utils import (
 	apply_transformed,
 	circular_mean,
@@ -65,6 +60,11 @@ from .other import (
 	get_ordinal,
 )
 from .pandas_utils import detect_cat_cols, find_first_matching_column, try_set_index_name_col
+from .point_construction import (
+	get_extreme_corner_points,
+	get_extreme_corners_of_point_set,
+	get_extreme_points,
+)
 
 __all__ = [
 	'KMLError',
