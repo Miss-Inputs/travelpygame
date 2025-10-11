@@ -101,14 +101,24 @@ def get_projected_crs(
 		west, south, east, north = bounds.bounds
 	else:
 		west, south, east, north = bounds
+
 	aoi = AreaOfInterest(west, south, east, north)
 	crs_infos = query_crs_info(area_of_interest=aoi, pj_types=PJType.PROJECTED_CRS, contains=True)
-	crs_infos = [info for info in crs_infos if info.auth_name != 'IAU_2015']
+	crs_infos = [
+		info
+		for info in crs_infos
+		if info.auth_name != 'IAU_2015' and info.name != 'GOES-16_East_ABI_Fixed_Grid_ITRF2008'
+	]
 	if not crs_infos:
 		return None
 	# Most certainly a better way to do that but eh
 	crs_infos = sorted(
-		crs_infos, key=lambda info: (info.code, info.name.startswith('GDA2020')), reverse=True
+		crs_infos,
+		key=lambda info: (
+			not info.name.startswith('GDA2020 /'),
+			info.projection_method_name != 'Albers Equal Area',
+			info.code,
+		),
 	)
 	sort_key = _make_crs_info_sort_key((west, south, east, north))
 	crs_infos = sorted(crs_infos, key=sort_key)
@@ -121,14 +131,15 @@ def get_projected_crs(
 	return None
 
 
-def get_metric_crs(g: BaseGeometry) -> pyproj.CRS:
+def get_metric_crs(g: BaseGeometry, *, query_db: bool = True) -> pyproj.CRS:
 	"""Returns a CRS that uses metres as its unit and that can be used with a particular geometry."""
 	if isinstance(g, shapely.Point):
 		point = g
 	else:
-		projected = get_projected_crs(g)
-		if projected:
-			return projected
+		if query_db:
+			projected = get_projected_crs(g)
+			if projected:
+				return projected
 		point = g.representative_point()
 	return pyproj.CRS(
 		f'+proj=aeqd +lat_0={point.y} +lon_0={point.x} +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs'
@@ -214,7 +225,9 @@ def circular_mean_xy(x: Iterable[float], y: Iterable[float]) -> tuple[float, flo
 	return mean_x, mean_y
 
 
-def circular_mean_points(points: Sequence[BaseGeometry] | GeoSeries | numpy.ndarray) -> shapely.Point:
+def circular_mean_points(
+	points: Sequence[BaseGeometry] | GeoSeries | numpy.ndarray,
+) -> shapely.Point:
 	"""Returns the point with coordinates being the circular mean of all coordinates in points."""
 	coords = shapely.get_coordinates(points)
 	x, y = coords.T
@@ -225,7 +238,7 @@ def circular_mean_points(points: Sequence[BaseGeometry] | GeoSeries | numpy.ndar
 def mean_points(points: Sequence[BaseGeometry] | GeoSeries | numpy.ndarray) -> shapely.Point:
 	"""Returns a point with the lat being the mean of each point's latitude, and longitude being the mean of each point's longitude, etc. without any circular business."""
 	coords = shapely.get_coordinates(points)
-	#This could even support include_z and include_m if we really wanted
+	# This could even support include_z and include_m if we really wanted
 	mean = coords.mean(axis=0)
 	mean[0] = fix_x_coord(mean[0])
 	mean[1] = fix_y_coord(mean[1])
