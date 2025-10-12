@@ -61,8 +61,9 @@ def _format_dataframe_inner(
 		return
 	if isinstance(cols, Iterable) and not isinstance(cols, (str, bytes)):
 		for col in cols:
-			df[col] = df[col].map(formatter)
-	else:
+			if col in df:
+				df[col] = df[col].map(formatter)
+	elif cols in df:
 		df[cols] = df[cols].map(formatter)
 
 
