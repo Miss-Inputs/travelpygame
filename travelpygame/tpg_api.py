@@ -4,7 +4,6 @@ from datetime import datetime
 
 from aiohttp import ClientSession
 from pydantic import BaseModel, Field, TypeAdapter
-from tqdm.auto import tqdm
 
 user_agent = 'https://github.com/Miss-Inputs/travelpygame'
 
@@ -79,38 +78,6 @@ async def get_round_submissions(
 		text = await response.text()
 	return _sub_list_adapter.validate_json(text)
 
-
-async def get_all_submissions(
-	max_round_num: int | None, game: int = 1, session: ClientSession | None = None
-) -> dict[int, list[TPGSubmission]]:
-	"""Gets all Travel Pics Game submissions that have been added to the map.
-
-	Arguments:
-		max_round_num: Latest round number if known, this will also display the progress bar better.
-		session: Optional requests.Session if you have one, otherwise creates a new one.
-		timeout: Request timeout in seconds, defaults to 10 seconds.
-
-	Returns:
-		{round number: list of submissions for that round}
-	"""
-	# Could be parallelized, but that might not be very nice, unless it's just using a lock anyway in which case it wouldn't necessarily accomplish much
-	if session is None:
-		async with get_session() as sesh:
-			return await get_all_submissions(max_round_num, game, sesh)
-
-	subs: dict[int, list[TPGSubmission]] = {}
-	round_num = 1
-	with tqdm(total=max_round_num) as t:
-		while (max_round_num is None) or (round_num <= max_round_num):
-			round_subs = await get_round_submissions(round_num, game, session)
-			t.update()
-			if not round_subs:
-				break
-			subs[round_num] = round_subs
-			round_num += 1
-	return subs
-
-
 class TPGPlayer(BaseModel):
 	discord_id: str
 	name: str
@@ -131,5 +98,32 @@ async def get_players(session: ClientSession | None = None) -> list[TPGPlayer]:
 	return _player_list_adapter.validate_json(text)
 
 
-# TODO: /api/v1/games could be something
-# TODO: /api/v1/submissions/user/{discord_id} could be something if getting an individual player
+class TPGGame(BaseModel, extra='forbid'):
+	id: int
+	name: str
+	server_id: str
+	submissions_channel: str
+	scoring_function: None
+	"""Unsure what this is / if it is used yet"""
+	acceptance_text: None
+	"""Unsure what this is / if it is used yet"""
+	rejection_text: None
+	"""Unsure what this is / if it is used yet"""
+
+
+_games_list_adapter = TypeAdapter(list[TPGGame])
+
+
+async def get_games(session: ClientSession | None = None) -> list[TPGGame]:
+	if session is None:
+		async with get_session() as sesh:
+			return await get_games(sesh)
+	url = 'https://travelpicsgame.com/api/v1/games'
+	async with session.get(url) as response:
+		response.raise_for_status()
+		text = await response.text()
+	return _games_list_adapter.validate_json(text)
+
+
+
+# /api/v1/submissions/user/{discord_id} and /api/v1/submissions/user/{discord_id}/game/{game_id} could be something if getting an individual player, otherwise, it would probably be slower and requestier to call that for every player vs. just getting all rounds
