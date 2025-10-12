@@ -71,6 +71,7 @@ def format_dataframe(
 	distance_cols: Iterable[Hashable] | Hashable | None = None,
 	point_cols: Iterable[Hashable] | Hashable | None = None,
 	area_cols: Iterable[Hashable] | Hashable | None = None,
+	number_cols: Iterable[Hashable] | Hashable | None = None,
 	*,
 	copy: bool = True,
 ) -> 'DataFrame':
@@ -79,4 +80,5 @@ def format_dataframe(
 	_format_dataframe_inner(df, distance_cols, format_distance)
 	_format_dataframe_inner(df, point_cols, format_point)
 	_format_dataframe_inner(df, area_cols, format_area)
+	_format_dataframe_inner(df, number_cols, format_number)
 	return df

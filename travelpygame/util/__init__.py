@@ -59,7 +59,13 @@ from .other import (
 	format_xy,
 	get_ordinal,
 )
-from .pandas_utils import detect_cat_cols, find_first_matching_column, try_set_index_name_col
+from .pandas_utils import (
+	detect_cat_cols,
+	find_first_matching_column,
+	first_unique_column_label,
+	maybe_set_index_name_col,
+	try_set_index_name_col,
+)
 from .point_construction import (
 	get_extreme_corner_points,
 	get_extreme_corners_of_point_set,
@@ -79,6 +85,7 @@ __all__ = [
 	'detect_cat_cols',
 	'find_first_geom_index',
 	'find_first_matching_column',
+	'first_unique_column_label',
 	'fix_x_coord',
 	'fix_y_coord',
 	'format_area',
@@ -113,6 +120,7 @@ __all__ = [
 	'haversine_distance',
 	'load_points',
 	'load_points_async',
+	'maybe_set_index_name_col',
 	'mean_points',
 	'output_geodataframe',
 	'parse_submission_kml',

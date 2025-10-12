@@ -1,8 +1,8 @@
 from .best_pics import get_best_pic
 from .new_pic_eval import find_if_new_pics_better, load_points_or_rounds
+from .point_set_stats import find_furthest_point, get_uniqueness
 from .random_points import random_point_in_bbox, random_point_in_poly, random_points_in_poly
 from .scoring import ScoringOptions, main_tpg_scoring, make_leaderboards, score_round
-from .stats import find_furthest_point, get_uniqueness
 from .tpg_data import (
 	Round,
 	Submission,
@@ -17,8 +17,8 @@ from .tpg_data import (
 from .util import (
 	geod_distance,
 	geodataframe_to_csv,
-	get_closest_point,
 	get_closest_index,
+	get_closest_point,
 	haversine_distance,
 	load_points,
 	load_points_async,
@@ -37,8 +37,8 @@ __all__ = [
 	'geod_distance',
 	'geodataframe_to_csv',
 	'get_best_pic',
-	'get_closest_point',
 	'get_closest_index',
+	'get_closest_point',
 	'get_main_tpg_rounds',
 	'get_main_tpg_rounds_with_path',
 	'get_submissions_per_user',
