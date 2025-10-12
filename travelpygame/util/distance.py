@@ -159,7 +159,7 @@ def get_distances(
 		if isinstance(points, Collection) and not isinstance(points, (Sequence, GeoSeries)):
 			points = list(points)
 		lngs, lats = shapely.get_coordinates(points).T
-	dist_func = geod_distances if use_haversine else haversine_distance
+	dist_func = haversine_distance if use_haversine else geod_distances
 	if isinstance(target_point, shapely.Point):
 		target_lat = target_point.y
 		target_lng = target_point.x
