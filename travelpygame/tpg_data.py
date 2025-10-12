@@ -298,6 +298,8 @@ async def _load_submissions_from_path(path: Path):
 			if name_col is not None and name_col.is_unique and not name_col.hasnans:
 				with contextlib.suppress(ValueError):
 					group = group.set_index('name', verify_integrity=True)
+			else:
+				group = group.reset_index()
 			subs[str(player)] = group.geometry.rename(str(player))
 	return subs
 
@@ -320,7 +322,8 @@ async def get_submissions_per_user_with_path(
 					pandas.Series(player, points.index, name='player'), geometry=points
 				)
 				for player, points in subs.items()
-			)
+			),
+			ignore_index=True,
 		)
 		assert isinstance(all_subs, geopandas.GeoDataFrame)
 		await asyncio.to_thread(all_subs.to_file, path)
