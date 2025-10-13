@@ -261,7 +261,7 @@ def get_point_set_distance(
 	"""Calculates distance/difference/dissimilarity from points_a to point_b in a variety of different ways. Should be symmetrical.
 
 	Returns:
-		Tuple: distance score (float, higher = less similar), index/name of closest point in A to any point in B, index/name of closest point in B to any point in A, distance between closest points
+		Tuple: dissimilarity (float, higher = less similar), distance between closest points, index/name of closest point in A to any point in B, index/name of closest point in B to any point in A
 	"""
 	if isinstance(method, tuple):
 		outer_method, inner_method = method
