@@ -1,3 +1,4 @@
+import warnings
 from collections.abc import Callable, Hashable, Iterable
 from typing import TYPE_CHECKING
 
@@ -79,7 +80,11 @@ def format_dataframe(
 	if copy:
 		df = df.copy()
 	_format_dataframe_inner(df, distance_cols, format_distance)
-	_format_dataframe_inner(df, point_cols, format_point)
+	try:
+		warnings.filterwarnings('ignore', 'Geometry column does not contain geometry\\.', UserWarning)
+		_format_dataframe_inner(df, point_cols, format_point)
+	finally:
+		warnings.resetwarnings()
 	_format_dataframe_inner(df, area_cols, format_area)
 	_format_dataframe_inner(df, number_cols, format_number)
 	return df
