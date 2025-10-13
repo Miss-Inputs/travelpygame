@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 def _maximin_objective(x: numpy.ndarray, *args) -> float:
 	points = args[0]
 	use_haversine = args[1] if len(args) > 1 else False
-	polygon: shapely.Polygon | None = args[2] if len(args) > 2 else None
+	polygon: BaseGeometry | None = args[2] if len(args) > 2 else None
 
 	lng, lat = x
 	penalize = False
@@ -47,7 +47,7 @@ def _find_furthest_point_single(points: Collection[shapely.Point]):
 def find_furthest_point(
 	points: Collection[shapely.Point],
 	initial: shapely.Point | None = None,
-	polygon: shapely.Polygon | shapely.MultiPolygon | None = None,
+	polygon: 'BaseGeometry | None' = None,
 	max_iter: int = 1_000,
 	pop_size: int = 20,
 	tolerance: float = 1e-7,
