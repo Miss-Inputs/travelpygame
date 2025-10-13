@@ -73,7 +73,9 @@ def maybe_set_index_name_col[T: 'pandas.DataFrame'](
 
 
 def first_unique_column_label(df: 'pandas.DataFrame'):
-	return next((name for name, col in df.items() if col.is_unique), None)
+	return next(
+		(name for name, col in df.items() if col.dtype != 'geometry' and col.is_unique), None
+	)
 
 
 def detect_cat_cols(df: 'pandas.DataFrame', frac_threshold: int = 2):
