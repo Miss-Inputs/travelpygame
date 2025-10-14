@@ -1,7 +1,7 @@
 """Various stats-related things for point sets"""
 
 import logging
-from collections.abc import Callable, Collection, Hashable
+from collections.abc import Callable, Collection, Hashable, Sequence
 from enum import Enum, auto
 from itertools import product
 from operator import itemgetter
@@ -43,6 +43,16 @@ def _maximin_objective(x: numpy.ndarray, *args) -> float:
 	return -min_dist
 
 
+def _geo_median_objective(x: numpy.ndarray, *args):
+	"""Sum of distances to points."""
+	points: Sequence[shapely.Point] | GeoSeries = args[0]
+	use_haversine = args[1] if len(args) > 1 else False
+
+	lng, lat = x
+	distances = get_distances((lat, lng), points, use_haversine=use_haversine)
+	return distances.sum()
+
+
 def _find_furthest_point_single(points: Collection[shapely.Point]):
 	point = next(iter(points))
 	antipode = get_geometry_antipode(point)
@@ -71,7 +81,9 @@ def find_furthest_point(
 	else:
 		bounds = ((-180, 180), (-90, 90))
 	with tqdm(
-		desc='Differentially evolving', total=(max_iter + 1) * pop_size * 2, disable=not use_tqdm
+		desc='Differentially evolving for furthest point',
+		total=(max_iter + 1) * pop_size * 2,
+		disable=not use_tqdm,
 	) as t:
 
 		def callback(*_):
@@ -94,10 +106,60 @@ def find_furthest_point(
 	distance = -result.fun
 	if not result.success:
 		logger.info(result.message)
-	if not isinstance(distance, float):
+	if isinstance(distance, numpy.floating):
 		# Those numpy floating types are probably going to bite me in the arse later if I don't stop them propagating
-		distance = float(distance)
+		distance = distance.item()
 	return point, distance
+
+
+def find_geometric_median(
+	points: Sequence[shapely.Point] | GeoSeries,
+	initial: shapely.Point | None = None,
+	max_iter: int = 1_000,
+	pop_size: int = 20,
+	tolerance: float = 1e-7,
+	*,
+	use_tqdm: bool = True,
+	use_haversine: bool = False,
+) -> shapely.Point:
+	if len(points) == 1:
+		if isinstance(points, GeoSeries):
+			first = points.iloc[0]
+			if not isinstance(first, shapely.Point):
+				raise TypeError(f'points contained single {type(first)} and not Point')
+			return first
+		return points[0]
+	if isinstance(points, GeoSeries):
+		minx, miny, maxx, maxy = points.total_bounds
+	else:
+		minx, miny, maxx, maxy = shapely.total_bounds(points)
+	bounds = ((minx, maxx), (miny, maxy))
+	with tqdm(
+		desc='Differentially evolving for geometric median',
+		total=(max_iter + 1) * pop_size * 2,
+		disable=not use_tqdm,
+	) as t:
+
+		def callback(*_):
+			# If you just pass t.update to the callback= argument it'll just stop since t.update() returns True yippeeeee
+			t.update()
+
+		result = differential_evolution(
+			_geo_median_objective,
+			bounds,
+			popsize=pop_size,
+			args=(points, use_haversine),
+			x0=numpy.asarray([initial.x, initial.y]) if initial else None,
+			maxiter=max_iter,
+			mutation=(0.5, 1.5),
+			tol=tolerance,
+			callback=callback,
+		)
+
+	point = shapely.Point(result.x)
+	if not result.success:
+		logger.info(result.message)
+	return point
 
 
 def get_uniqueness(points: GeoSeries | GeoDataFrame):
