@@ -22,19 +22,25 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _diagonal_dist(poly: 'BaseGeometry'):
+	minx, miny, maxx, maxy = poly.bounds
+	return geod_distance((miny, minx), (maxy, maxx))
+
+
 def _maximin_objective(x: numpy.ndarray, *args) -> float:
 	points = args[0]
 	use_haversine = args[1] if len(args) > 1 else False
 	polygon: BaseGeometry | None = args[2] if len(args) > 2 else None
 
 	lng, lat = x
-	penalize = False
-	if polygon and not shapely.intersects_xy(polygon, lng, lat):
-		penalize = True
-
 	distances = get_distances((lat, lng), points, use_haversine=use_haversine)
 	min_dist = distances.min()
-	return min_dist if penalize else -min_dist
+
+	if polygon and not shapely.intersects_xy(polygon, lng, lat):
+		# This doesn't always work as expected with multipolygons, like if polygon is a country with an offshore island, the optimizer tends to end up in the mainland and never the island even when it's visibly further away
+		diagonal_dist = _diagonal_dist(polygon)
+		return diagonal_dist - min_dist
+	return -min_dist
 
 
 def _find_furthest_point_single(points: Collection[shapely.Point]):
