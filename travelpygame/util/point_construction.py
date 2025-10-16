@@ -297,7 +297,7 @@ def get_fixed_grid(
 	min_y: float,
 	max_x: float,
 	max_y: float,
-	resolution: float,
+	resolution: float | tuple[float, float],
 	crs: Any = 'wgs84',
 	*,
 	reverse_y_in_index: bool = True,
@@ -310,8 +310,12 @@ def get_fixed_grid(
 		crs: CRS of returned GeoSeries.
 		reverse_y_in_index: Start counting from the maximum y instead of the mininum (this is likely more intuitive for grids in WGS84 coordinates as minimum y will be south and not north.)
 	"""
-	x = numpy.arange(min_x, max_x, resolution)
-	y = numpy.arange(min_y, max_y, resolution)
+	if isinstance(resolution, tuple):
+		x_res, y_res = resolution
+	else:
+		x_res = y_res = resolution
+	x = numpy.arange(min_x, max_x, x_res)
+	y = numpy.arange(min_y, max_y, y_res)
 	return get_grid(x, y, crs, reverse_y_in_index=reverse_y_in_index)
 
 
@@ -320,7 +324,7 @@ def get_spaced_grid(
 	min_y: float,
 	max_x: float,
 	max_y: float,
-	amount: int,
+	amount: int | tuple[int, int],
 	crs: Any = 'wgs84',
 	*,
 	reverse_y_in_index: bool = True,
@@ -333,8 +337,12 @@ def get_spaced_grid(
 		crs: CRS of returned GeoSeries.
 		reverse_y_in_index: Start counting from the maximum y instead of the mininum (this is likely more intuitive for grids in WGS84 coordinates as minimum y will be south and not north.)
 	"""
-	x = numpy.linspace(min_x, max_x, amount)
-	y = numpy.linspace(min_y, max_y, amount)
+	if isinstance(amount, tuple):
+		x_amount, y_amount = amount
+	else:
+		x_amount = y_amount = amount
+	x = numpy.linspace(min_x, max_x, x_amount)
+	y = numpy.linspace(min_y, max_y, y_amount)
 	return get_grid(x, y, crs, reverse_y_in_index=reverse_y_in_index)
 
 
@@ -369,24 +377,32 @@ def get_grid_over_geodataframe(
 def get_fixed_grid_over_geodataframe(
 	gdf: geopandas.GeoDataFrame,
 	bounds: tuple[float, float, float, float] | None,
-	resolution: float,
+	resolution: float | tuple[float, float],
 	*,
 	reverse_y_in_index: bool = True,
 ) -> geopandas.GeoDataFrame:
 	min_x, min_y, max_x, max_y = gdf.total_bounds if bounds is None else bounds
-	x = numpy.arange(min_x, max_x, resolution)
-	y = numpy.arange(min_y, max_y, resolution)
+	if isinstance(resolution, tuple):
+		x_res, y_res = resolution
+	else:
+		x_res = y_res = resolution
+	x = numpy.arange(min_x, max_x, x_res)
+	y = numpy.arange(min_y, max_y, y_res)
 	return get_grid_over_geodataframe(gdf, x, y, reverse_y_in_index=reverse_y_in_index)
 
 
 def get_spaced_grid_over_geodataframe(
 	gdf: geopandas.GeoDataFrame,
 	bounds: tuple[float, float, float, float] | None,
-	amount: int,
+	amount: int | tuple[int, int],
 	*,
 	reverse_y_in_index: bool = True,
 ) -> geopandas.GeoDataFrame:
 	min_x, min_y, max_x, max_y = gdf.total_bounds if bounds is None else bounds
-	x = numpy.linspace(min_x, max_x, amount)
-	y = numpy.linspace(min_y, max_y, amount)
+	if isinstance(amount, tuple):
+		x_amount, y_amount = amount
+	else:
+		x_amount = y_amount = amount
+	x = numpy.linspace(min_x, max_x, x_amount)
+	y = numpy.linspace(min_y, max_y, y_amount)
 	return get_grid_over_geodataframe(gdf, x, y, reverse_y_in_index=reverse_y_in_index)
