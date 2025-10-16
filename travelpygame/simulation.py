@@ -3,7 +3,7 @@
 import logging
 import random
 from collections import Counter, defaultdict
-from collections.abc import Collection, Iterable, Sequence
+from collections.abc import Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from enum import Enum, auto
 from operator import itemgetter
@@ -38,7 +38,7 @@ class Simulation:
 	rounds: dict[str, Point]
 	round_order: dict[str, int] | None
 	"""Order for each round, if desired, effectively sets the round number (i.e. lower numbers first)"""
-	player_pics: dict[str, GeoSeries | Sequence[Point]]
+	player_pics: Mapping[str, GeoSeries | Sequence[Point]]
 	"""Locations for each user."""
 	scoring: ScoringOptions
 	strategy: SimulatedStrategy = SimulatedStrategy.Closest
@@ -109,7 +109,7 @@ class Simulation:
 
 def simulate_existing_rounds(
 	rounds: Collection[Round],
-	pics: dict[str, GeoSeries | Sequence[Point]] | None = None,
+	pics: Mapping[str, GeoSeries | Sequence[Point]] | None = None,
 	scoring: ScoringOptions | None = None,
 	strategy: SimulatedStrategy = SimulatedStrategy.Closest,
 	*,
