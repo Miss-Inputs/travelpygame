@@ -288,7 +288,7 @@ def get_submissions_per_user_from_path(path: Path):
 	if path.suffix[1:].lower() == 'json':
 		rounds = load_rounds(path)
 		for player, latlngs in get_submissions_per_user(rounds).items():
-			player_points = shapely.points(list(latlngs))
+			player_points = shapely.points([(lng, lat) for lat, lng in latlngs]).tolist()
 			assert not isinstance(player_points, Point)
 			subs[player] = geopandas.GeoSeries(player_points, crs='wgs84', name=player)
 	else:
