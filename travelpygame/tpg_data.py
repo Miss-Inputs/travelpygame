@@ -18,7 +18,7 @@ from tqdm.auto import tqdm
 
 from travelpygame import tpg_api
 
-from .util.io_utils import load_points_async
+from .util.io_utils import load_points
 from .util.kml import Placemark, SubmissionTracker, parse_submission_kml
 
 if TYPE_CHECKING:
@@ -283,16 +283,16 @@ async def get_main_tpg_submissions_per_user(
 	return out
 
 
-async def _load_submissions_from_path(path: Path):
+def get_submissions_per_user_from_path(path: Path):
 	subs = {}
 	if path.suffix[1:].lower() == 'json':
-		rounds = await load_rounds_async(path)
+		rounds = load_rounds(path)
 		for player, latlngs in get_submissions_per_user(rounds).items():
 			player_points = shapely.points(list(latlngs))
 			assert not isinstance(player_points, Point)
 			subs[player] = geopandas.GeoSeries(player_points, crs='wgs84', name=player)
 	else:
-		points = await load_points_async(path)
+		points = load_points(path)
 		for player, group in points.groupby('player', sort=False):
 			name_col = group.get('name')
 			if name_col is not None and name_col.is_unique and not name_col.hasnans:
@@ -310,7 +310,7 @@ async def get_submissions_per_user_with_path(
 	"""If path is a geofile, it _must_ have a column named "player" with the player name of each point, and if it has a column named "name" that is unique for each player then that will be used as the name of each pic (the index in the GeoSeries). Otherwise, it will load TPG data from that file."""
 	if path:
 		try:
-			return await _load_submissions_from_path(path)
+			return await asyncio.to_thread(get_submissions_per_user_from_path, path)
 		except FileNotFoundError:
 			pass
 
