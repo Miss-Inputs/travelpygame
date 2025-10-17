@@ -3,7 +3,7 @@
 import logging
 import random
 from collections import Counter, defaultdict
-from collections.abc import Collection, Iterable, Mapping, Sequence
+from collections.abc import Collection, Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from enum import Enum, auto
 from operator import itemgetter
@@ -12,14 +12,14 @@ from typing import Any
 
 import pandas
 import shapely
-from geopandas import GeoSeries
+from geopandas import GeoDataFrame, GeoSeries
 from shapely import Point
 from tqdm.auto import tqdm
 
 from .best_pics import get_best_pic
 from .scoring import ScoringOptions, main_tpg_scoring, score_round
 from .tpg_data import Round, Submission, get_submissions_per_user
-from .util.other import format_xy
+from .util.other import format_point, format_xy
 
 logger = logging.getLogger(__name__)
 
@@ -230,4 +230,41 @@ def get_player_summary(new_rounds: Iterable[Round] | Simulation) -> pandas.DataF
 		pandas.DataFrame(rows)
 		.set_index('name', verify_integrity=True)
 		.sort_values('total', ascending=False)
+	)
+
+
+def get_player_submissions(
+	new_rounds: Iterable[Round] | Simulation, name: str
+) -> Iterator[tuple[Round, Submission]]:
+	if isinstance(new_rounds, Simulation):
+		new_rounds = new_rounds.simulate_rounds()
+	for r in new_rounds:
+		sub = r.find_player(name)
+		if sub:
+			yield r, sub
+
+
+def get_player_podium_or_losing_points(
+	new_rounds: Iterable[Round] | Simulation, name: str
+) -> tuple[GeoDataFrame, GeoDataFrame]:
+	winning = []
+	losing = []
+	for r, sub in get_player_submissions(new_rounds, name):
+		if sub.rank is None:
+			# Shouldn't happen but might as well just ignore it
+			continue
+		row = {
+			'name': r.name or format_point(r.target),
+			'target': r.target,
+			'submission': sub.description or format_point(sub.point),
+			'rank': sub.rank,
+			'score': sub.score,
+			'distance': sub.distance,
+		}
+		if sub.rank <= 3:
+			winning.append(row)
+		elif sub.rank == len(r.submissions):
+			losing.append(row)
+	return GeoDataFrame(winning, geometry='target', crs='wgs84'), GeoDataFrame(
+		losing, geometry='target', crs='wgs84'
 	)
