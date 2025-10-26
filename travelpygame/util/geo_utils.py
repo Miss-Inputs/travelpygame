@@ -1,12 +1,13 @@
 from collections.abc import Callable, Iterable, Sequence
 from functools import cache, partial
 from itertools import chain
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import numpy
 import pyproj
 import shapely
 from geopandas import GeoDataFrame, GeoSeries
+from geopandas.array import GeometryArray
 from pyproj.aoi import AreaOfInterest
 from pyproj.database import CRSInfo, query_crs_info
 from pyproj.enums import PJType
@@ -14,9 +15,6 @@ from shapely.geometry.base import BaseGeometry, BaseMultipartGeometry
 from shapely.ops import transform
 
 from .distance import wgs84_geod
-
-if TYPE_CHECKING:
-	from geopandas.array import GeometryArray
 
 
 def get_poly_vertices(poly: shapely.Polygon | shapely.MultiPolygon) -> list[shapely.Point]:
@@ -304,7 +302,7 @@ def geod_buffer_line(line: shapely.LineString, distance: float, quad_segs: int =
 
 
 def contains_any(
-	geo: 'GeoDataFrame | GeoSeries | GeometryArray | BaseGeometry',
+	geo: GeoDataFrame | GeoSeries | GeometryArray | BaseGeometry,
 	point: shapely.Point | tuple[float, float],
 ) -> bool:
 	"""Returns a bool indicating if a point is anywhere within any part of a geometry or GeoPandas object."""
@@ -321,7 +319,7 @@ def contains_any(
 
 
 def contains_any_array(
-	geo: 'GeoDataFrame | GeoSeries | GeometryArray | BaseGeometry',
+	geo: GeoDataFrame | GeoSeries | GeometryArray | BaseGeometry,
 	points: numpy.ndarray | Sequence[shapely.Point],
 ):
 	"""Returns an array of of booleans for each point, indicating whether each point is anywhere in a geometry or GeoPandas object."""
@@ -334,7 +332,7 @@ def contains_any_array(
 
 
 def get_polygons(
-	geom: 'GeoDataFrame | GeoSeries | GeometryArray | BaseGeometry',
+	geom: GeoDataFrame | GeoSeries | GeometryArray | BaseGeometry,
 ) -> list[shapely.Polygon]:
 	"""Gets every individual polygon inside geom."""
 	if isinstance(geom, shapely.Polygon):
@@ -362,3 +360,19 @@ def find_first_geom_index(
 	if rows.empty:
 		return None
 	return rows.index[0]
+
+
+def get_total_bounds(geoms: Iterable[BaseGeometry] | GeoSeries | GeoDataFrame | GeometryArray):
+	if isinstance(geoms, (GeoSeries, GeoDataFrame, GeometryArray)):
+		total_bounds = geoms.total_bounds
+		# Ensures it ends up being float instead of numpy.floating, because I'm just petty like that
+		min_x, min_y, max_x, max_y = total_bounds.tolist()
+	else:
+		all_min_x, all_min_y, all_max_x, all_max_y = zip(
+			*(geom.bounds for geom in geoms), strict=True
+		)
+		min_x = min(all_min_x)
+		min_y = min(all_min_y)
+		max_x = max(all_max_x)
+		max_y = max(all_max_y)
+	return min_x, min_y, max_x, max_y

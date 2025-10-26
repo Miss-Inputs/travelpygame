@@ -27,6 +27,7 @@ from .geo_utils import (
 	get_poly_vertices,
 	get_polygons,
 	get_projected_crs,
+	get_total_bounds,
 	get_transform_methods,
 	mean_points,
 )
@@ -116,6 +117,7 @@ __all__ = [
 	'get_poly_vertices',
 	'get_polygons',
 	'get_projected_crs',
+	'get_total_bounds',
 	'get_transform_methods',
 	'haversine_distance',
 	'load_points',
