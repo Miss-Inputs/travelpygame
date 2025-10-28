@@ -234,11 +234,13 @@ def convert_submission_tracker(
 
 
 def load_rounds(path: Path) -> list[Round]:
+	"""Loads a list of rounds from a JSON file."""
 	content = path.read_bytes()
 	return round_list_adapter.validate_json(content)
 
 
 async def load_rounds_async(path: Path) -> list[Round]:
+	"""Loads a list of rounds from a JSON file in another thread."""
 	content = await asyncio.to_thread(path.read_bytes)
 	return round_list_adapter.validate_json(content)
 
@@ -249,6 +251,7 @@ def _spaces_to_tabs(m: re.Match[str]):
 
 
 def rounds_to_json(rounds: list[Round]) -> str:
+	"""Converts a list of rounds to nicely formatted JSON."""
 	json_bytes = round_list_adapter.dump_json(rounds, indent=2, exclude_none=True)
 	return re.sub(r'\n(\s{2,})', _spaces_to_tabs, json_bytes.decode('utf-8'))
 
@@ -256,6 +259,10 @@ def rounds_to_json(rounds: list[Round]) -> str:
 async def get_main_tpg_submissions_per_user(
 	rounding: int = 6, session: 'ClientSession | None' = None
 ) -> dict[str, geopandas.GeoSeries]:
+	"""Fetches submissions per-user from the API.
+
+	Returns:
+		dict: {player name: point set}"""
 	if session is None:
 		async with tpg_api.get_session() as sesh:
 			return await get_main_tpg_submissions_per_user(rounding, sesh)
@@ -284,7 +291,8 @@ async def get_main_tpg_submissions_per_user(
 
 
 def get_submissions_per_user_from_path(path: Path):
-	subs = {}
+	"""Gets submissions per user either from a JSON file containing TPG data, or from a geofile containing submissions with a "player" column (and optionally a "name" column for the picture description.)"""
+	subs: dict[str, geopandas.GeoSeries] = {}
 	if path.suffix[1:].lower() == 'json':
 		rounds = load_rounds(path)
 		for player, latlngs in get_submissions_per_user(rounds).items():
@@ -300,6 +308,10 @@ def get_submissions_per_user_from_path(path: Path):
 					group = group.set_index('name', verify_integrity=True)
 			else:
 				group = group.reset_index()
+			if not isinstance(group, geopandas.GeoDataFrame):
+				raise TypeError(
+					f'Encountered {type(group)} when grouping instead of GeoDataFrame for {player}'
+				)
 			subs[str(player)] = group.geometry.rename(str(player))
 	return subs
 
@@ -307,7 +319,7 @@ def get_submissions_per_user_from_path(path: Path):
 async def get_submissions_per_user_with_path(
 	path: Path | None = None, session: 'ClientSession | None' = None
 ) -> dict[str, geopandas.GeoSeries]:
-	"""If path is a geofile, it _must_ have a column named "player" with the player name of each point, and if it has a column named "name" that is unique for each player then that will be used as the name of each pic (the index in the GeoSeries). Otherwise, it will load TPG data from that file."""
+	"""If path is a geofile, it _must_ have a column named "player" with the player name of each point, and if it has a column named "name" that is unique for each player then that will be used as the name of each pic (the index in the GeoSeries). Otherwise, it will load TPG data from that file. If path does not exist, it will fetch data from the API and save it there."""
 	if path:
 		try:
 			return await asyncio.to_thread(get_submissions_per_user_from_path, path)
@@ -331,7 +343,7 @@ async def get_submissions_per_user_with_path(
 
 
 def get_submissions_per_user(rounds: Iterable[Round]):
-	"""Returns dict of player name -> set[(lat, lng)] from TPG data."""
+	"""Returns dict of player name -> set[(lat, lng)] from TPG data. Probably doesn't need to be used anymore."""
 	# TODO: Redo this so we can more properly round coordinates, and potentially get sub.description as the name (but it would have to be filled in with format_point as a placeholder if returning a GeoSeries… hrm)
 	submissions: defaultdict[str, set[tuple[float, float]]] = defaultdict(set)
 
