@@ -9,6 +9,7 @@ from typing import Any
 import geopandas
 import pandas
 from pyzstd import ZstdFile
+from shapely import Point
 from tqdm.auto import tqdm
 
 from .pandas_utils import find_first_matching_column
@@ -90,11 +91,14 @@ def _geodataframe_to_normal_df(
 	include_z: bool = False,
 	insert_before: bool = True,
 ):
+	only_has_points = all(isinstance(geom, Point) for geom in gdf.geometry.dropna())
 	df = gdf.drop(columns=gdf.active_geometry_name)
-	coords = gdf.get_coordinates(include_z=include_z)
-	a = [df, coords[coords.columns[::-1]]]  # generally we want lat before lng
-	df = pandas.concat(reversed(a) if insert_before else a, axis='columns')
-	return df.rename(columns={'x': lng_col_name, 'y': lat_col_name})
+	if only_has_points:
+		coords = gdf.get_coordinates(include_z=include_z)
+		a = [df, coords[coords.columns[::-1]]]  # generally we want lat before lng
+		df = pandas.concat(reversed(a) if insert_before else a, axis='columns')
+		return df.rename(columns={'x': lng_col_name, 'y': lat_col_name})
+	return df
 
 
 def geodataframe_to_csv(
