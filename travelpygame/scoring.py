@@ -51,7 +51,7 @@ main_tpg_scoring = ScoringOptions(
 def score_distances(
 	distances: pandas.Series,
 	is_5k: pandas.Series,
-	is_antipode_5k: pandas.Series,
+	is_antipode_5k: pandas.Series | None,
 	options: ScoringOptions,
 ):
 	n = distances.size
@@ -82,7 +82,7 @@ def score_distances(
 		scores[is_5k] = options.fivek_flat_score
 	elif options.fivek_bonus is not None:
 		scores[is_5k] += options.fivek_bonus
-	if options.antipode_5k_flat_score is not None:
+	if options.antipode_5k_flat_score is not None and is_antipode_5k is not None:
 		scores[is_antipode_5k] = options.antipode_5k_flat_score
 	return scores if options.round_to is None else scores.round(options.round_to)
 
