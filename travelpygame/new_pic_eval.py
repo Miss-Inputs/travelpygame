@@ -53,7 +53,7 @@ def _load_points_or_rounds_single(path: Path):
 			geometry='geometry',
 			crs='wgs84',
 		)
-	return load_points(path)
+	return load_points(path).dropna(subset='geometry')
 
 
 def load_points_or_rounds(paths: Path | Sequence[Path]) -> GeoDataFrame:
