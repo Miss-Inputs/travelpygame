@@ -376,3 +376,13 @@ def get_total_bounds(geoms: Iterable[BaseGeometry] | GeoSeries | GeoDataFrame | 
 		max_x = max(all_max_x)
 		max_y = max(all_max_y)
 	return min_x, min_y, max_x, max_y
+
+
+def get_area(geom: BaseGeometry | GeoSeries | GeoDataFrame) -> float:
+	"""Quick shortcut for Geod.get_area_perimeter (that is more convenient to use), but also gets the total area of a GeoSeries/GeoDataFrame if you want to do that."""
+	if isinstance(geom, GeoDataFrame):
+		return get_area(geom.geometry)
+	if isinstance(geom, (GeoSeries, GeometryArray)):
+		return sum(geom.map(get_area, na_action='ignore'))
+	area, _perimeter = wgs84_geod.geometry_area_perimeter(geom)
+	return abs(area)
