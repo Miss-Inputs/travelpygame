@@ -74,6 +74,7 @@ def format_dataframe(
 	point_cols: Iterable[Hashable] | Hashable | None = None,
 	area_cols: Iterable[Hashable] | Hashable | None = None,
 	number_cols: Iterable[Hashable] | Hashable | None = None,
+	percent_cols: Iterable[Hashable] | Hashable | None = None,
 	*,
 	copy: bool = True,
 ) -> 'DataFrame':
@@ -81,10 +82,13 @@ def format_dataframe(
 		df = df.copy()
 	_format_dataframe_inner(df, distance_cols, format_distance)
 	try:
-		warnings.filterwarnings('ignore', 'Geometry column does not contain geometry\\.', UserWarning)
+		warnings.filterwarnings(
+			'ignore', 'Geometry column does not contain geometry\\.', UserWarning
+		)
 		_format_dataframe_inner(df, point_cols, format_point)
 	finally:
 		warnings.resetwarnings()
 	_format_dataframe_inner(df, area_cols, format_area)
 	_format_dataframe_inner(df, number_cols, format_number)
+	_format_dataframe_inner(df, percent_cols, '{:%}'.format)
 	return df
