@@ -265,6 +265,8 @@ def get_player_podium_or_losing_points(
 			winning.append(row)
 		elif sub.rank == len(r.submissions):
 			losing.append(row)
-	return GeoDataFrame(winning, geometry='target', crs='wgs84'), GeoDataFrame(
+	return GeoDataFrame(
+		winning, geometry='target', crs='wgs84'
+	) if winning else GeoDataFrame(), GeoDataFrame(
 		losing, geometry='target', crs='wgs84'
-	)
+	) if losing else GeoDataFrame()
