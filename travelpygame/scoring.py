@@ -63,6 +63,7 @@ def score_distances(
 	else:
 		world_distance = options.world_distance_km * 1_000
 		distance_scores = (world_distance - distances) / 1_000
+		distance_scores *= 5_000 / options.world_distance_km
 	if options.clip_negative:
 		distance_scores = distance_scores.clip(0)
 
