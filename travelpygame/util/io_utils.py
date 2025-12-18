@@ -1,6 +1,7 @@
 """Stuff for reading/writing files easier, generally pandas or geopandas objects."""
 
 import asyncio
+import sys
 import warnings
 from collections.abc import Hashable
 from pathlib import Path, PurePath
@@ -8,9 +9,13 @@ from typing import Any
 
 import geopandas
 import pandas
-from pyzstd import ZstdFile
 from shapely import Point
 from tqdm.auto import tqdm
+
+if sys.version_info >= (3, 14):
+	from compression import zstd
+else:
+	from backports import zstd
 
 from .pandas_utils import find_first_matching_column
 
@@ -59,18 +64,18 @@ def read_geodataframe(path: PurePath | str) -> geopandas.GeoDataFrame:
 		path = Path(path)
 	if path.suffix.lower() == '.zst':
 		with (
-			ZstdFile(path, 'r') as zst,
-			warnings.catch_warnings(category=RuntimeWarning, action='ignore'),
+			zstd.ZstdFile(path, 'r') as zst,
+			tqdm.wrapattr(zst, 'read', path.stat().st_size, desc=f'Reading {path}') as f,
 		):
-			# shut up nerd I don't care if it has a GPKG application_id or whatever
-			gdf = geopandas.read_file(zst)
+			# Getting the uncompressed size of zst would be nice but I don't think we can do that
+			gdf = geopandas.read_file(f)
 	else:
 		with (
 			path.open('rb') as _f,
 			tqdm.wrapattr(_f, 'read', path.stat().st_size, desc=f'Reading {path}') as f,
 			warnings.catch_warnings(category=RuntimeWarning, action='ignore'),
 		):
-			# shut up nerd I don't care if it has a GPKG application_id or whatever
+			# shut up nerd I don't care if it has a GPKG application_id or whatever (does this warning still get shown? Maybe not)
 			gdf = geopandas.read_file(f)
 	if not isinstance(gdf, geopandas.GeoDataFrame):
 		# Not sure if this ever happens, or if the type hint is just like that

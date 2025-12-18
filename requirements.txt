@@ -1,10 +1,10 @@
 aiohttp
+backports.zstd; python_version < '3.14'
 geopandas
 numpy
 pandas
 pydantic
 pyproj
-pyzstd
 scipy
 shapely
 tqdm
