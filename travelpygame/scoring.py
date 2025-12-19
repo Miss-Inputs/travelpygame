@@ -1,48 +1,19 @@
 from collections import Counter, defaultdict
 from collections.abc import Collection, Mapping
-from dataclasses import dataclass
 from enum import IntEnum
 from operator import attrgetter
-from typing import TYPE_CHECKING
 
 import numpy
 import pandas
 
+from .tpg_data import Round, ScoringOptions
 from .util.distance import geod_distance_and_bearing, haversine_distance
 
-if TYPE_CHECKING:
-	from .tpg_data import Round
-
-
-@dataclass
-class ScoringOptions:
-	"""Different ways to score TPG. This is not an exhaustive set of configurations, but it's what we use at the moment"""
-
-	fivek_flat_score: float | None
-	"""If not None, 5Ks have a constant score of this"""
-	fivek_bonus: float | None
-	"""If not None, add this amount to the score of any submission which is a 5K (note that this would be in conjunction with rank_bonus)"""
-	rank_bonuses: dict[int, float] | None
-	"""If not none, add amounts to the score of players receiving a certain rank, e.g. main TPG uses {1: 3000, 2: 2000, 1: 1000}"""
-	antipode_5k_flat_score: float | None
-	"""If not None, antipode 5Ks have a constant score of this"""
-	world_distance_km: float = 20_000
-	"""Maximum distance (size of what is considered the entire world), usually simplified as 20,000 for world TPG or 5,000 for most regional TPGs"""
-	round_to: int | None = 2
-	"""Round score to this many decimal places, or None to not do that"""
-	distance_divisor: float | None = None
-	"""If not None, divide distance by this, and then subtract from (world_distance_km / 4) (this is basically just for main TPG)"""
-	clip_negative: bool = True
-	"""Sets negative distance scores to 0, you probably want this in regional TPGs to be nice to players who are outside your region but submit anyway for the love of the game (so they can get points from rank instead)"""
-	average_distance_and_rank: bool = True
-	"""If true, score is (distance score + rank score) / 2, if false (as with main TPG), just add the two score parts together"""
-
-
 main_tpg_scoring = ScoringOptions(
-	None,
-	2000,
-	{1: 3000, 2: 2000, 3: 1000},
-	10_000,
+	fivek_flat_score=None,
+	fivek_bonus=2000,
+	rank_bonuses={1: 3000, 2: 2000, 3: 1000},
+	antipode_5k_flat_score=10_000,
 	distance_divisor=4.003006,
 	average_distance_and_rank=False,
 )

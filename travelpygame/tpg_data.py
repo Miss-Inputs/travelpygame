@@ -3,7 +3,7 @@
 import asyncio
 import contextlib
 import re
-from collections import defaultdict
+from collections import Counter, defaultdict
 from collections.abc import Iterable, Sequence
 from enum import StrEnum
 from pathlib import Path
@@ -24,9 +24,12 @@ from .util.kml import Placemark, SubmissionTracker, parse_submission_kml
 if TYPE_CHECKING:
 	from aiohttp import ClientSession
 
+PlayerName = str
+"""Type hint for what is a player name. Should be consistent."""
+
 
 class Submission(BaseModel, extra='allow'):
-	name: str
+	name: PlayerName
 	"""Name of whoever submitted this."""
 	latitude: float
 	"""WGS84 latitude of the picture."""
@@ -55,7 +58,7 @@ class Submission(BaseModel, extra='allow'):
 
 class TPGType(StrEnum):
 	Normal = 'normal'
-	"""Standard TPG where you have one target per round and one submission"""
+	"""Standard TPG where you have one target per round and one submission."""
 	# Anything else like multi (increasing) or line once I implement stuff like that
 
 
@@ -81,14 +84,54 @@ class RoundInfo(BaseModel, extra='allow'):
 
 
 class Round(RoundInfo):
+	"""A round + its submissions, which may or may not be scored."""
+
 	submissions: list[Submission]
 
 	@property
 	def is_scored(self) -> bool:
+		"""Returns true iff _all_ submissions are scored."""
 		return all(sub.score is not None for sub in self.submissions)
 
-	def find_player(self, name: str):
+	def find_player(self, name: str) -> Submission | None:
+		"""Finds the submission of a player (case-sensitive, etc), or returns None if that player does not have a submission for this round."""
 		return next((sub for sub in self.submissions if sub.name == name), None)
+
+
+class ScoringOptions(BaseModel, extra='allow'):
+	"""Different ways to score TPG. This is not an exhaustive set of configurations, but it's what we use at the moment"""
+
+	fivek_flat_score: float | None
+	"""If not None, 5Ks have a constant score of this"""
+	fivek_bonus: float | None
+	"""If not None, add this amount to the score of any submission which is a 5K (note that this would be in conjunction with rank_bonus)"""
+	rank_bonuses: dict[int, float] | None
+	"""If not none, add amounts to the score of players receiving a certain rank, e.g. main TPG uses {1: 3000, 2: 2000, 1: 1000}"""
+	antipode_5k_flat_score: float | None
+	"""If not None, antipode 5Ks have a constant score of this"""
+	world_distance_km: float = 20_000
+	"""Maximum distance (size of what is considered the entire world), usually simplified as 20,000 for world TPG or 5,000 for most regional TPGs"""
+	round_to: int | None = 2
+	"""Round score to this many decimal places, or None to not do that"""
+	distance_divisor: float | None = None
+	"""If not None, divide distance by this, and then subtract from (world_distance_km / 4) (this is basically just for main TPG)"""
+	clip_negative: bool = True
+	"""Sets negative distance scores to 0, you probably want this in regional TPGs to be nice to players who are outside your region but submit anyway for the love of the game (so they can get points from rank instead)"""
+	average_distance_and_rank: bool = True
+	"""If true, score is (distance score + rank score) / 2, if false (as with main TPG), just add the two score parts together"""
+
+
+class Season(BaseModel, extra='allow'):
+	"""Stores a list of rounds and their submissions, and the rules for scoring. Not used just yet."""
+
+	name: str
+	"""Name of the spinoff, or "Main", etc"""
+	number: int | None
+	type: TPGType
+	scoring: ScoringOptions
+	"""Specifies how this season is scored."""
+	rounds: list[Round]
+	"""All rounds that have happened so far in this season."""
 
 
 def _convert_submission(
@@ -362,3 +405,48 @@ def get_submissions_per_user(rounds: Iterable[Round]):
 		for sub in r.submissions:
 			submissions[sub.name].add((sub.latitude, sub.longitude))
 	return submissions
+
+
+_CombinationSource = Round | Season | tuple[PlayerName, float, float]
+
+
+def _add_combined_subs(
+	d: dict[PlayerName, Counter[Point]],
+	source: _CombinationSource,
+	aliases: dict[str, PlayerName],
+	rounding: int,
+):
+	if isinstance(source, Round):
+		for sub in source.submissions:
+			_add_combined_subs(d, (sub.name, sub.latitude, sub.longitude), aliases, rounding)
+	elif isinstance(source, Season):
+		for roundyboi in source.rounds:
+			_add_combined_subs(d, roundyboi, aliases, rounding)
+	else:
+		player, lat, lng = source
+		player = aliases.get(player, player)
+		point = Point(round(lng, rounding), round(lat, rounding))
+		d.setdefault(player, Counter())[point] += 1
+
+
+def combine_player_submissions(
+	sources: Iterable[_CombinationSource], aliases: dict[str, PlayerName] | None, rounding: int = 6
+) -> dict[PlayerName, geopandas.GeoDataFrame]:
+	"""Combines rounds with submissions/mappings of player name + coordinates into one mapping of submissions by player.
+
+	Arguments:
+		aliases: Optional mapping of {raw player name -> player name}, for spelling variations in trackers and such.
+		rounding: Number of decimal places to round to.
+
+	Returns:
+	        dict containing player submissions by name."""
+	# TODO: Probably should ensure player name is case insensitive or whatnot, though just need to ensure it still ends up the correct way
+
+	combined: dict[PlayerName, Counter[Point]] = {}
+	for source in sources:
+		_add_combined_subs(combined, source, aliases or {}, rounding)
+	frames: dict[PlayerName, geopandas.GeoDataFrame] = {}
+	for player, points in frames.items():
+		point_counts = [{'point': point, 'count': count} for point, count in points.items()]
+		frames[player] = geopandas.GeoDataFrame(point_counts, geometry='point', crs='wgs84')
+	return frames
