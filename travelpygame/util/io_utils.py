@@ -71,8 +71,8 @@ def read_geodataframe(path: PurePath | str) -> geopandas.GeoDataFrame:
 			gdf = geopandas.read_file(f)
 	else:
 		with (
-			path.open('rb') as _f,
-			tqdm.wrapattr(_f, 'read', path.stat().st_size, desc=f'Reading {path}') as f,
+			path.open('rb') as raw,
+			tqdm.wrapattr(raw, 'read', path.stat().st_size, desc=f'Reading {path}') as f,
 			warnings.catch_warnings(category=RuntimeWarning, action='ignore'),
 		):
 			# shut up nerd I don't care if it has a GPKG application_id or whatever (does this warning still get shown? Maybe not)
