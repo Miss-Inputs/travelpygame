@@ -14,7 +14,7 @@ from tqdm.auto import tqdm
 from travelpygame import tpg_api
 from travelpygame.util import load_points
 
-from .loader import load_rounds
+from .io import load_rounds
 
 if TYPE_CHECKING:
 	from aiohttp import ClientSession
