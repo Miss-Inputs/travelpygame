@@ -2,10 +2,10 @@
 
 from datetime import datetime
 
-from aiohttp import ClientSession
+from aiohttp import ClientSession, ClientTimeout
 from pydantic import BaseModel, Field, TypeAdapter
 
-user_agent = 'https://github.com/Miss-Inputs/travelpygame'
+from .util.web import get_text, user_agent
 
 
 class TPGRound(BaseModel, extra='forbid'):
@@ -32,14 +32,13 @@ def get_session():
 	return ClientSession(headers={'User-Agent': user_agent})
 
 
-async def get_rounds(game: int = 1, session: ClientSession | None = None) -> list[TPGRound]:
-	if session is None:
-		async with get_session() as sesh:
-			return await get_rounds(game, sesh)
+async def get_rounds(
+	game: int = 1,
+	session: ClientSession | None = None,
+	client_timeout: ClientTimeout | float | None = 60.0,
+) -> list[TPGRound]:
 	url = f'https://travelpicsgame.com/api/v1/rounds/{game}'
-	async with session.get(url) as response:
-		response.raise_for_status()
-		text = await response.text()
+	text = await get_text(url, session, client_timeout)
 	return _round_list_adapter.validate_json(text)
 
 
@@ -67,16 +66,15 @@ _sub_list_adapter = TypeAdapter(list[TPGSubmission])
 
 
 async def get_round_submissions(
-	round_num: int, game: int = 1, session: ClientSession | None = None
+	round_num: int,
+	game: int = 1,
+	session: ClientSession | None = None,
+	client_timeout: ClientTimeout | float | None = 60.0,
 ) -> list[TPGSubmission]:
-	if session is None:
-		async with get_session() as sesh:
-			return await get_round_submissions(round_num, game, sesh)
 	url = f'https://travelpicsgame.com/api/v1/submissions/game/{game}/round/{round_num}'
-	async with session.get(url) as response:
-		response.raise_for_status()
-		text = await response.text()
+	text = await get_text(url, session, client_timeout)
 	return _sub_list_adapter.validate_json(text)
+
 
 class TPGPlayer(BaseModel):
 	discord_id: str
@@ -87,14 +85,12 @@ class TPGPlayer(BaseModel):
 _player_list_adapter = TypeAdapter(list[TPGPlayer])
 
 
-async def get_players(session: ClientSession | None = None) -> list[TPGPlayer]:
-	if session is None:
-		async with get_session() as sesh:
-			return await get_players(sesh)
+async def get_players(
+	session: ClientSession | None = None, client_timeout: ClientTimeout | float | None = 60.0
+) -> list[TPGPlayer]:
+	"""Gets all players who have submitted for TPG."""
 	url = 'https://travelpicsgame.com/api/v1/players'
-	async with session.get(url) as response:
-		response.raise_for_status()
-		text = await response.text()
+	text = await get_text(url, session, client_timeout)
 	return _player_list_adapter.validate_json(text)
 
 
@@ -114,16 +110,13 @@ class TPGGame(BaseModel, extra='forbid'):
 _games_list_adapter = TypeAdapter(list[TPGGame])
 
 
-async def get_games(session: ClientSession | None = None) -> list[TPGGame]:
-	if session is None:
-		async with get_session() as sesh:
-			return await get_games(sesh)
+async def get_games(
+	session: ClientSession | None = None, client_timeout: ClientTimeout | float | None = 60.0
+) -> list[TPGGame]:
+	"""Gets all games on the main site."""
 	url = 'https://travelpicsgame.com/api/v1/games'
-	async with session.get(url) as response:
-		response.raise_for_status()
-		text = await response.text()
+	text = await get_text(url, session, client_timeout)
 	return _games_list_adapter.validate_json(text)
-
 
 
 # /api/v1/submissions/user/{discord_id} and /api/v1/submissions/user/{discord_id}/game/{game_id} could be something if getting an individual player, otherwise, it would probably be slower and requestier to call that for every player vs. just getting all rounds
