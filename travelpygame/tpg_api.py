@@ -111,6 +111,8 @@ class TPGGame(BaseModel, extra='forbid'):
 	"""Unsure what this is / if it is used yet"""
 	rejection_text: None
 	"""Unsure what this is / if it is used yet"""
+	join_link: str
+	leaderboard_link: str
 
 
 _games_list_adapter = TypeAdapter(list[TPGGame])
