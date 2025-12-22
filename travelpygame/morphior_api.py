@@ -33,14 +33,14 @@ async def get_morphior_all_submissions(
 ) -> geopandas.GeoDataFrame:
 	"""Returns all.geojson (containing submissions across spinoffs) as a GeoDataFrame. Currently has these columns:
 	geometry
-	name: Username
+	name: Display name
 	description: Usually empty string, or the description as entered in the submission tracker
 	styleUrl: Google Maps style URL
 	Coordinates: Coordinates as comma-separated decimal degrees
 	source: "mymaps"
 	map_id: Google My Maps ID
 	layer: Seems to be always an empty string for now
-	title: Username
+	title: Display name
 	username: Username
 	"""
 	json_text = await get_morphior_all_submissions_json(session, client_timeout)

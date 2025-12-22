@@ -7,6 +7,9 @@ from pydantic import BaseModel, Field, TypeAdapter
 
 from .util.web import get_text, user_agent
 
+PlayerID = str
+"""Type hint for a Discord ID, used in the travelpicsgame.com API. This is a number, but it's an opaque ID so there's no real reason to get pydantic to convert it."""
+
 
 class TPGRound(BaseModel, extra='forbid'):
 	number: int
@@ -22,7 +25,7 @@ class TPGRound(BaseModel, extra='forbid'):
 	end_timestamp: datetime | None
 	season: int
 	game: int
-	"""Which game this round is for (1 = main TPG, etc)"""
+	"""Which game this round is for (1 = main TPG, etc)."""
 
 
 _round_list_adapter = TypeAdapter(list[TPGRound])
@@ -53,13 +56,16 @@ class TPGSubmission(BaseModel):
 	"""WGS84 longitude of the picture."""
 	place: int
 	"""Placement of this picture so far, starting at 1st place, or 0th place if the round is not finished yet."""
-	fivek: bool = Field(validation_alias='5k')
+	is_5k: bool = Field(validation_alias='5k')
 	"""Whether this picture counted as a 5K or not."""
 	antipode_5k: bool
-	discord_id: str
-	"""In theory this is an int, but since it is an opaque ID, might as well leave it as str"""
+	"""Whether this picture counted as 5K'ing the antipode of the round target or not."""
+	discord_id: PlayerID
+	"""Player who submitted the picture."""
 	is_tie: bool
+	"""True if this submission ties with another one in the round."""
 	game: int
+	"""Game ID that this was a part of."""
 
 
 _sub_list_adapter = TypeAdapter(list[TPGSubmission])

@@ -1,12 +1,12 @@
-
 from enum import StrEnum
 
 from pydantic import BaseModel, TypeAdapter
 from shapely import Point
 
 PlayerName = str
-"""Type hint for what is a player name. Should be consistent."""
-
+"""Type hint for what is a player name (human readable display name). Should be consistent but maybe isn't."""
+PlayerUsername = str
+"""Type hint for Discord username, or name as a fallback (since that can be None)."""
 
 class Submission(BaseModel, extra='allow'):
 	name: PlayerName
@@ -30,6 +30,9 @@ class Submission(BaseModel, extra='allow'):
 	"""Placement for this submission, starting at 1 for first place and 2 for second, etc, or None if score is not calculated yet."""
 	distance: float | None = None
 	"""Distance for this submission in metres from the target, or None if this is not calculated yet."""
+
+	username: PlayerUsername | None = None
+	"""Discord username of whoever submitted this, if we have that information."""
 
 	@property
 	def point(self) -> Point:
@@ -112,5 +115,6 @@ class Season(BaseModel, extra='allow'):
 	"""Specifies how this season is scored."""
 	rounds: list[Round]
 	"""All rounds that have happened so far in this season."""
+
 
 round_list_adapter = TypeAdapter(list[Round])

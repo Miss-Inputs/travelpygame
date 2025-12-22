@@ -17,17 +17,19 @@ def _convert_submission(
 	if sub.discord_id in players:
 		player = players[sub.discord_id]
 		name = player.name
-		extra['username'] = player.username
+		username = player.username
 	else:
 		# That will have to do
 		name = sub.discord_id
+		username = f'<{sub.discord_id}>'
 	return Submission(
 		name=name,
 		latitude=sub.latitude,
 		longitude=sub.longitude,
-		is_5k=sub.fivek,
+		is_5k=sub.is_5k,
 		is_antipode_5k=sub.antipode_5k,
 		is_tie=sub.is_tie,
+		username=username,
 		**extra,
 	)
 

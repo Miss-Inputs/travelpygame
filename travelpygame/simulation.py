@@ -11,14 +11,13 @@ from statistics import mean
 from typing import Any
 
 import pandas
-import shapely
 from geopandas import GeoDataFrame, GeoSeries
 from shapely import Point
 from tqdm.auto import tqdm
 
 from .best_pics import get_best_pic
 from .scoring import ScoringOptions, main_tpg_scoring, score_round
-from .tpg_data import Round, Submission, get_submissions_per_user
+from .tpg_data import Round, Submission, combine_player_submissions_to_point_sets
 from .util.other import format_point, format_xy
 
 logger = logging.getLogger(__name__)
@@ -117,8 +116,8 @@ def simulate_existing_rounds(
 ) -> Simulation:
 	if not pics:
 		pics = {
-			player: shapely.points([(lng, lat) for lat, lng in latlngs]).tolist()
-			for player, latlngs in get_submissions_per_user(rounds).items()
+			player: points.geometry
+			for player, points in combine_player_submissions_to_point_sets(rounds).items()
 		}
 	targets = {r.name or f'Round {r.number}': r.target for r in rounds}
 	scoring = scoring or main_tpg_scoring
