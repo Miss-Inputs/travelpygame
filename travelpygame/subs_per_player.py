@@ -61,7 +61,7 @@ async def get_main_tpg_subs_per_player(
 			player_name = player_names.get(player_id, f'<unknown {player_id}>')
 			combined[player_name] += subs
 
-	return combine_player_submissions((combined,), None, rounding)
+	return combine_player_submissions((combined,), aliases, rounding)
 
 
 async def get_morphior_subs_per_player(
@@ -70,8 +70,8 @@ async def get_morphior_subs_per_player(
 	session: 'ClientSession | None' = None,
 ):
 	gdf = await get_morphior_all_submissions(session)
-	rows = ((row['username'], row['latitude'], row['longitude']) for _, row in gdf.iterrows())
-	return combine_player_submissions(rows, aliases, rounding)
+	rows = ((row['username'], row.geometry.y, row.geometry.x) for _, row in gdf.iterrows())
+	return combine_player_submissions((rows,), aliases, rounding)
 
 
 def get_per_player_subs_from_gdf(gdf: geopandas.GeoDataFrame):

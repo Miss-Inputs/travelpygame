@@ -1,4 +1,4 @@
-from collections import Counter
+from collections import Counter, defaultdict
 from collections.abc import Collection, Iterable, Iterator, Mapping, Sequence
 
 import geopandas
@@ -55,7 +55,7 @@ def convert_point_counters(d: PointCounters) -> dict[PlayerUsername, geopandas.G
 def combine_point_counters(
 	counters: Iterable[PointCounters],
 ) -> dict[PlayerUsername, geopandas.GeoDataFrame]:
-	combined: PointCounters = {}
+	combined: PointCounters = defaultdict(Counter)
 	for counter in counters:
 		for player, points in counter.items():
 			combined[player].update(points)
