@@ -1,0 +1,15 @@
+[project]
+name = "travelpygame"
+version = "0.1.0"
+description = "Library for Travel Pics Game stuff"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = []
+
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "."}
+packages = ["travelpygame"]
