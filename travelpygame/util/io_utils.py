@@ -10,6 +10,7 @@ from typing import Any
 import geopandas
 import pandas
 from shapely import Point
+from shapely.geometry.base import BaseGeometry, BaseMultipartGeometry
 from tqdm.auto import tqdm
 
 if sys.version_info >= (3, 14):
@@ -346,3 +347,29 @@ async def load_points_async(
 		has_header=has_header,
 		keep_lnglat_cols=keep_lnglat_cols,
 	)
+
+
+def geometry_to_file(
+	path: str | PurePath, geom: BaseGeometry, crs: Any = 'wgs84', *, explode_multipart: bool = True
+):
+	"""Exports shapely geometry objects to a file containing just that geometry."""
+	# TODO: Pretty print if output format is geojson
+	if explode_multipart and isinstance(geom, BaseMultipartGeometry):
+		data = list(geom.geoms)
+	else:
+		data = [geom]
+	gs = geopandas.GeoSeries(data, crs=crs)
+	gs.to_file(path)
+
+
+async def geometry_to_file_async(
+	path: str | PurePath, geom: BaseGeometry, crs: Any = 'wgs84', *, explode_multipart: bool = True
+):
+	"""Exports shapely geometry objects to a file containing just that geometry."""
+	# TODO: Pretty print if output format is geojson
+	if explode_multipart and isinstance(geom, BaseMultipartGeometry):
+		data = list(geom.geoms)
+	else:
+		data = [geom]
+	gs = geopandas.GeoSeries(data, crs=crs)
+	await asyncio.to_thread(gs.to_file, path)

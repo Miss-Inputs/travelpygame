@@ -34,6 +34,8 @@ from .geo_utils import (
 )
 from .io_utils import (
 	geodataframe_to_csv,
+	geometry_to_file,
+	geometry_to_file_async,
 	load_points,
 	load_points_async,
 	output_geodataframe,
@@ -100,6 +102,8 @@ __all__ = [
 	'geod_distance',
 	'geod_distance_and_bearing',
 	'geodataframe_to_csv',
+	'geometry_to_file',
+	'geometry_to_file_async',
 	'get_antipode',
 	'get_antipodes',
 	'get_area',
