@@ -1,4 +1,4 @@
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Hashable, Iterable, Sequence
 from functools import cache, partial
 from itertools import chain
 from typing import Any
@@ -350,7 +350,7 @@ def get_polygons(
 
 def find_first_geom_index(
 	gdf: GeoDataFrame | GeoSeries, geom: 'BaseGeometry', tolerance: float | None = 1e-6
-):
+) -> Hashable | None:
 	if isinstance(gdf, GeoDataFrame):
 		gdf = gdf.geometry
 	if geom in gdf or tolerance is None:
