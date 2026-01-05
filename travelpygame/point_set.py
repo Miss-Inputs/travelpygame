@@ -20,8 +20,8 @@ from travelpygame.util import (
 logger = logging.getLogger(__name__)
 
 
-class PointSetInfo:
-	"""Stores a point set and other properties on it to make converting between lots of different types easier. Maybe this should be called PointSet and then that shouldn't be just a type hint… hrm"""
+class PointSet:
+	"""Stores a point set and other properties on it to make converting between lots of different types easier."""
 
 	def __init__(self, gdf: GeoDataFrame, projected_crs: Any | None = None):
 		self.gdf = gdf

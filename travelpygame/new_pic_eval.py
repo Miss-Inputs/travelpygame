@@ -13,7 +13,7 @@ from geopandas import GeoDataFrame, GeoSeries
 from shapely import Point
 from tqdm.auto import tqdm
 
-from .best_pics import PointSet, get_best_pic
+from .best_pics import PointCollection, get_best_pic
 from .submission_comparison import compare_player_in_round
 from .tpg_data import Round, load_rounds
 from .util.distance import get_distances
@@ -67,7 +67,7 @@ def load_points_or_rounds(paths: Path | Sequence[Path]) -> GeoDataFrame:
 
 
 def find_if_new_pics_better(
-	points: PointSet, new_points: PointSet, targets: PointSet, *, use_haversine: bool = False
+	points: PointCollection, new_points: PointCollection, targets: PointCollection, *, use_haversine: bool = False
 ) -> pandas.DataFrame:
 	if isinstance(targets, GeoDataFrame):
 		targets = targets.geometry
@@ -96,9 +96,9 @@ def find_if_new_pics_better(
 
 
 def find_new_pic_diffs(
-	points: PointSet,
+	points: PointCollection,
 	new_point: Point,
-	targets: PointSet,
+	targets: PointCollection,
 	*,
 	use_haversine: bool = False,
 	use_tqdm: bool = True,
@@ -140,7 +140,7 @@ def find_new_pic_diffs(
 
 
 def find_new_pics_better_individually(
-	points: PointSet, new_points: PointSet, targets: PointSet, *, use_haversine: bool = False
+	points: PointCollection, new_points: PointCollection, targets: PointCollection, *, use_haversine: bool = False
 ) -> pandas.DataFrame:
 	"""For each new point in `new_points`: Finds how often that new point was closer to a point in `targets` compared to `points`, and the total reduction in distance. This function's name kinda sucks, and it is also a tad convoluted and its purpose is also a bit murky, so it may be rewritten mercilessly or removed in future."""
 	if isinstance(new_points, GeoDataFrame):
@@ -220,7 +220,7 @@ class DistanceImprovement:
 def find_improvements_in_round(
 	round_: Round,
 	player_name: str,
-	new_pics: PointSet,
+	new_pics: PointCollection,
 	distance_required: float | None = None,
 	*,
 	use_haversine: bool = True,
@@ -265,7 +265,7 @@ def find_improvements_in_round(
 
 
 def find_improvements_in_rounds(
-	rounds: list[Round], player_name: str, new_pics: PointSet, *, use_haversine: bool = True
+	rounds: list[Round], player_name: str, new_pics: PointCollection, *, use_haversine: bool = True
 ) -> Iterator[DistanceImprovement]:
 	"""Finds where previous rounds could have been improved by at least one place if any of new_pics was available at the time.
 

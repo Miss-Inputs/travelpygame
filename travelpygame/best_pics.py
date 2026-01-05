@@ -8,11 +8,11 @@ from shapely import Point
 
 from .util.distance import get_closest_index, get_furthest_index
 
-PointSet = Collection[Point] | numpy.ndarray | GeoSeries | GeoDataFrame
-
+PointCollection = Collection[Point] | numpy.ndarray | GeoSeries | GeoDataFrame
+"""Seems a bit odd for this to be defined here of all places? Oh well"""
 
 def get_best_pic(
-	pics: PointSet, target: 'Point', *, use_haversine: bool = False, reverse: bool = False
+	pics: PointCollection, target: 'Point', *, use_haversine: bool = False, reverse: bool = False
 ) -> tuple[Any, float]:
 	"""Finds the best pic among a collection of pics. If pics is a GeoDataFrame/GeoSeries, returns the index in that object and not the numeric index.
 
@@ -37,7 +37,7 @@ def get_best_pic(
 	return index, distance
 
 
-def get_worst_point(pics: PointSet, targets: PointSet, *, use_haversine: bool = False):
+def get_worst_point(pics: PointCollection, targets: PointCollection, *, use_haversine: bool = False):
 	"""Finds the worst case distance in a group of targets, and the index of that target within `targets`. If `pics` or `targets` are a GeoDataFrame/GeoSeries, returns the index in that object and not the numeric index."""
 	if isinstance(pics, GeoDataFrame):
 		pics = pics.geometry
