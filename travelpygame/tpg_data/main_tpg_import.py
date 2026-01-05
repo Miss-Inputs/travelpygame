@@ -1,3 +1,4 @@
+import re
 from typing import TYPE_CHECKING, Any
 
 from tqdm.auto import tqdm
@@ -70,3 +71,59 @@ async def get_main_tpg_rounds(game: int = 1, session: 'ClientSession | None' = N
 			)
 
 	return rounds
+
+
+_emoji_regex_parts = (
+	# This comment is so it lines up nicely when autoformatted
+	r'\uE000-\uF8FF',
+	r'\U0001F100-\U0001F2FF',
+	r'\U0001F300-\U0001F6FF',
+	r'\U0001F780-\U0001F9FF',
+	r'\U0001FA70-\U0001FAFF',
+	r'\U000E0000-\U000E007F',
+)
+_emoji_regex_middle = ''.join(_emoji_regex_parts)
+probably_emoji = re.compile(rf'[{_emoji_regex_middle}]+')
+"""Emoji regex kinda, excludes code blocks:
+	E000 Private Use Area
+	1F100 Enclosed Alphanumeric Supplement
+	1F200 Enclosed Ideographic Supplement
+	1F300 Misc Symbols and Pictographs
+	1F600 Emoticons
+	1F650 Ornamental Dingbats
+	1F680 Transport and Map Symbols
+	1F780 Geometric Shapes Extended
+	1F900 Supplemental Symbols and Pictographs
+	1FA70 Symbols and Pictographs Extended-A
+	E0000 Tags
+Unashamedly has false positives and false negatives, as this will never realistically be perfect unless I import a library just to do this which seems a bit much.
+"""
+
+
+async def get_player_username(
+	name: str, session: 'ClientSession|None' = None, *, ignore_emojis: bool | None = None
+) -> str | None:
+	"""Finds the username of a player, from main TPG data, or None if not found.
+
+	Arguments:
+		name: Display name.
+		session: Optional aiohttp session to use, will create one if not provided.
+		ignore_emojis: Whether to ignore emojis (or characters that are most likely emojis, because I don't want to specify every single code block) in names or not when considering a match, by default (or if None), will be True if `name` does not include emojis or False if it does.
+	"""
+	if ignore_emojis is None:
+		ignore_emojis = probably_emoji.search(name) is None
+
+	if session is None:
+		async with tpg_api.get_session() as sesh:
+			return await get_player_username(name, sesh, ignore_emojis=ignore_emojis)
+
+	players = await tpg_api.get_players(session)
+	for player in players:
+		player_name = player.name
+		if ignore_emojis:
+			player_name = probably_emoji.sub('', player_name)
+		player_name = player_name.strip()
+		if name == player_name:
+			return player.username
+
+	return None

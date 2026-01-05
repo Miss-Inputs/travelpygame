@@ -3,7 +3,7 @@
 from .classes import PlayerName, PlayerUsername, Round, ScoringOptions, Season, Submission, TPGType
 from .combine import combine_player_submissions_to_point_sets
 from .io import get_main_tpg_rounds_with_path, load_rounds, load_rounds_async, rounds_to_json
-from .main_tpg_import import get_main_tpg_rounds
+from .main_tpg_import import get_main_tpg_rounds, get_player_username
 from .tracker_import import convert_submission_tracker
 
 __all__ = [
@@ -18,6 +18,7 @@ __all__ = [
 	'convert_submission_tracker',
 	'get_main_tpg_rounds',
 	'get_main_tpg_rounds_with_path',
+	'get_player_username',
 	'load_rounds',
 	'load_rounds_async',
 	'rounds_to_json',
