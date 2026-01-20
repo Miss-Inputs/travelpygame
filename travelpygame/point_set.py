@@ -70,7 +70,7 @@ class PointSet:
 		return Series(distances, index=self.points.index).sort_values()
 
 	@cached_property
-	def projected_multipoint(self):
+	def projected_multipoint(self) -> shapely.MultiPoint:
 		"""Returns points projected to a projected CRS, as a MultiPoint."""
 		return shapely.MultiPoint(self.points.to_crs(self.projected_crs).to_numpy())
 

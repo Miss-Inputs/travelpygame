@@ -182,9 +182,9 @@ def find_new_next_highest_distance(
 	round_: 'Round',
 	name: str,
 	new_point: 'Point',
-	new_distance: float|None=None,
-	new_rank: int | None=None,
-	new_pic_desc: str | None=None,
+	new_distance: float | None = None,
+	new_rank: int | None = None,
+	new_pic_desc: str | None = None,
 	*,
 	use_haversine: bool,
 ) -> SubmissionDifference | None:
@@ -198,12 +198,16 @@ def find_new_next_highest_distance(
 		sorted_subs = sorted(round_.submissions, key=attrgetter('distance'))
 	distances = [sub.distance for sub in round_.submissions if sub.distance is not None]
 	if new_distance is None:
-		new_distance = haversine_distance(round_.latitude, round_.longitude, new_point.y, new_point.x) if use_haversine else geod_distance((round_.latitude, round_.longitude), new_point)
+		new_distance = (
+			haversine_distance(round_.latitude, round_.longitude, new_point.y, new_point.x)
+			if use_haversine
+			else geod_distance((round_.latitude, round_.longitude), new_point)
+		)
 	if new_rank is None:
 		new_rank = bisect(distances, new_distance) + 1
 	if new_rank == 1:
 		return None
-	new_rival = sorted_subs[new_rank - 2] #remember, new_rank is a 1-based index
+	new_rival = sorted_subs[new_rank - 2]  # remember, new_rank is a 1-based index
 	assert new_rival.distance is not None, 'new_rival.distance is None'
 	return SubmissionDifference(
 		round_.name,
@@ -219,5 +223,5 @@ def find_new_next_highest_distance(
 		new_rival.point,
 		new_rival.description,
 		new_rival.score,
-		new_rival.distance
+		new_rival.distance,
 	)
