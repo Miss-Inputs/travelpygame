@@ -67,7 +67,11 @@ def load_points_or_rounds(paths: Path | Sequence[Path]) -> GeoDataFrame:
 
 
 def find_if_new_pics_better(
-	points: PointCollection, new_points: PointCollection, targets: PointCollection, *, use_haversine: bool = False
+	points: PointCollection,
+	new_points: PointCollection,
+	targets: PointCollection,
+	*,
+	use_haversine: bool = False,
 ) -> pandas.DataFrame:
 	if isinstance(targets, GeoDataFrame):
 		targets = targets.geometry
@@ -140,7 +144,11 @@ def find_new_pic_diffs(
 
 
 def find_new_pics_better_individually(
-	points: PointCollection, new_points: PointCollection, targets: PointCollection, *, use_haversine: bool = False
+	points: PointCollection,
+	new_points: PointCollection,
+	targets: PointCollection,
+	*,
+	use_haversine: bool = False,
 ) -> pandas.DataFrame:
 	"""For each new point in `new_points`: Finds how often that new point was closer to a point in `targets` compared to `points`, and the total reduction in distance. This function's name kinda sucks, and it is also a tad convoluted and its purpose is also a bit murky, so it may be rewritten mercilessly or removed in future."""
 	if isinstance(new_points, GeoDataFrame):
@@ -230,7 +238,7 @@ def find_improvements_in_round(
 	Arguments:
 		round_: Rounds from TPG data, preferably already scored (or had distance calculated).
 		player_name: Player's name, if None, results might not entirely make sense (it would return something like every time anyone's submission at all gets improved by something in new_pics), but it's technically possible to do that.
-		new_points: Set of hypothetical new locations to evaluate.
+		new_pics: Set of hypothetical new locations to evaluate.
 		distance_required: Only count if it is above this distance.
 		use_haversine: If true, use haversine distance to calculate the distances from new_pics, as well as the existing round distances if it has not been scored, otherwise use WGS84 geodetic distance.
 	"""
@@ -265,14 +273,19 @@ def find_improvements_in_round(
 
 
 def find_improvements_in_rounds(
-	rounds: list[Round], player_name: str, new_pics: PointCollection, *, use_haversine: bool = True
+	rounds: list[Round],
+	player_name: str,
+	new_pics: PointCollection,
+	distance_required: float | None = None,
+	*,
+	use_haversine: bool = True,
 ) -> Iterator[DistanceImprovement]:
 	"""Finds where previous rounds could have been improved by at least one place if any of new_pics was available at the time.
 
 	Arguments:
 		rounds: Rounds from TPG data, preferably already scored (or had distance calculated).
 		player_name: Player's name
-		new_points: Set of hypothetical new locations to evaluate.
+		new_pics: Set of hypothetical new locations to evaluate.
 		distance_required: Only count if it is above this distance.
 	"""
 	if isinstance(new_pics, GeoDataFrame):
@@ -282,7 +295,7 @@ def find_improvements_in_rounds(
 
 	for round_ in rounds:
 		yield from find_improvements_in_round(
-			round_, player_name, new_pics, use_haversine=use_haversine
+			round_, player_name, new_pics, distance_required, use_haversine=use_haversine
 		)
 
 
