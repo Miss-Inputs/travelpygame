@@ -19,6 +19,10 @@ from travelpygame.util import (
 
 logger = logging.getLogger(__name__)
 
+_generic_projected_crs = pyproj.CRS(
+	'+proj=aeqd +lat_0=0 +lon_0=0 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs'
+)
+
 
 class PointSet:
 	"""Stores a point set and other properties on it to make converting between lots of different types easier."""
@@ -27,14 +31,8 @@ class PointSet:
 		self.gdf: GeoDataFrame = gdf
 		self.name = name
 		self.points = gdf.geometry
-		if projected_crs is None:
-			projected_crs = get_projected_crs(self.points)
-			if not projected_crs:
-				projected_crs = pyproj.CRS(
-					'+proj=aeqd +lat_0=0 +lon_0=0 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs'
-				)
-		self.projected_crs = projected_crs
-		self.to_proj, self.from_proj = get_transform_methods(gdf.crs or 'WGS84', projected_crs)
+		self.projected_crs_arg = projected_crs
+		"""Argument which may be a CRS or a string etc and has not been validated yet"""
 
 	@cached_property
 	def point_array(self):
@@ -71,6 +69,15 @@ class PointSet:
 		return Series(distances, index=self.points.index).sort_values()
 
 	@cached_property
+	def projected_crs(self):
+		if self.projected_crs_arg is None:
+			crs = get_projected_crs(self.points)
+			if crs:
+				return crs
+			logger.info('Could not detect projected CRS for %s, using a generic one', self.name)
+		return _generic_projected_crs
+
+	@cached_property
 	def projected_multipoint(self) -> shapely.MultiPoint:
 		"""Returns points projected to a projected CRS, as a MultiPoint."""
 		return shapely.MultiPoint(self.points.to_crs(self.projected_crs).to_numpy())
@@ -79,7 +86,9 @@ class PointSet:
 	def centroid(self):
 		"""Takes into account `projected_crs`."""
 		proj_centroid = self.projected_multipoint.centroid
-		return transform(self.from_proj, proj_centroid)
+		#I guess we could cache from_proj here, but it's not that important
+		_to_proj, from_proj = get_transform_methods(self.gdf.crs or 'WGS84', self.projected_crs)
+		return transform(from_proj, proj_centroid)
 
 
 def validate_points(
