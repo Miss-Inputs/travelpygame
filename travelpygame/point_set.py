@@ -23,8 +23,9 @@ logger = logging.getLogger(__name__)
 class PointSet:
 	"""Stores a point set and other properties on it to make converting between lots of different types easier."""
 
-	def __init__(self, gdf: GeoDataFrame, projected_crs: Any | None = None):
-		self.gdf = gdf
+	def __init__(self, gdf: GeoDataFrame, name: str, projected_crs: Any | None = None):
+		self.gdf: GeoDataFrame = gdf
+		self.name = name
 		self.points = gdf.geometry
 		if projected_crs is None:
 			projected_crs = get_projected_crs(self.points)
