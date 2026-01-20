@@ -254,6 +254,7 @@ def get_extreme_corners_of_point_set(gs: geopandas.GeoSeries):
 
 
 def _get_row_col(i: int, x_size: int, y_size: int, *, reverse_y: bool = True) -> tuple[int, int]:
+	# Probably a better way to do that than divmod but eh, if it works it works
 	y, x = divmod(i, x_size)
 	return x, (y_size - y) - 1 if reverse_y else y
 
@@ -278,10 +279,10 @@ def get_grid(
 
 	x_grid, y_grid = numpy.meshgrid(x, y)
 	grid = numpy.column_stack((x_grid.ravel(), y_grid.ravel()))
+	"""2D array of shape (xsize * y_size, 2)"""
 	points = shapely.points(grid)
 	assert not isinstance(points, shapely.Point), 'why is points a single point'
 
-	# Probably a better way to do that than divmod but eh, if it works it works
 	rowcols = pandas.MultiIndex.from_tuples(
 		[
 			(_get_row_col(i, x_size, y_size, reverse_y=reverse_y_in_index))
@@ -406,3 +407,74 @@ def get_spaced_grid_over_geodataframe(
 	x = numpy.linspace(min_x, max_x, x_amount)
 	y = numpy.linspace(min_y, max_y, y_amount)
 	return get_grid_over_geodataframe(gdf, x, y, reverse_y_in_index=reverse_y_in_index)
+
+
+_Corner = list[float]
+
+
+def get_box_grid(
+	x: numpy.ndarray | Sequence[float],
+	y: numpy.ndarray | Sequence[float],
+	crs: Any = 'wgs84',
+	*,
+	reverse_y: bool = True,
+) -> geopandas.GeoSeries:
+	"""Creates a grid of rectangles from x and y coordinates. Index of the returned GeoSeries will be a MultiIndex with level 0 = counting upwards for every lng/x and level 1 = counting upwards for every lat/y.
+
+	Arguments:
+		x: Sequence/1D array of x/lng coordinates to form the grid.
+		y: Sequence/1D array of y/lat coordinates to form the grid.
+		crs: CRS of returned GeoSeries.
+		reverse_y: Start counting from the maximum y instead of the mininum (this is likely more intuitive for grids in WGS84 coordinates as minimum y will be south and not north.)
+	"""
+	x_size = numpy.size(x)
+	y_size = numpy.size(y)
+
+	x_grid, y_grid = numpy.meshgrid(x, y)
+	grid = numpy.column_stack((x_grid.ravel(), y_grid.ravel()))
+	"""2D array of shape (xsize * y_size, 2)"""
+	polygon_coords: list[tuple[_Corner, _Corner, _Corner, _Corner, _Corner]] = []
+	# There is a better way to do this with fancy slicing probably, but I've overthunked this for too long and don't know _that_ much what I'm doing
+	for i in range(len(grid) - (x_size + 1)):
+		if i % x_size == (x_size - 1):
+			continue
+		sw_corner = grid[i]
+		se_corner = grid[i + 1]
+		nw_corner = grid[i + x_size]
+		ne_corner = grid[i + x_size + 1]
+		box = (sw_corner, nw_corner, ne_corner, se_corner, sw_corner)
+		polygon_coords.append(box)
+	boxes = shapely.polygons(polygon_coords)
+
+	rowcols = pandas.MultiIndex.from_tuples(
+		[(_get_row_col(i, x_size, y_size, reverse_y=reverse_y)) for i in range(len(boxes))],
+		names=('x', 'y'),
+	)
+	return geopandas.GeoSeries(boxes, rowcols, crs)
+
+
+def get_fixed_box_grid(
+	min_x: float,
+	min_y: float,
+	max_x: float,
+	max_y: float,
+	resolution: float | tuple[float, float],
+	crs: Any = 'wgs84',
+	*,
+	reverse_y: bool = True,
+) -> geopandas.GeoSeries:
+	"""Creates a grid of boxes of a fixed distance. Index of the returned GeoSeries will be a MultiIndex with level 0 = counting upwards for every lng/x and level 1 = counting upwards for every lat/y.
+
+	Arguments:
+		min_x, min_y, max_x, max_y: Boundary of grid.
+		resolution: Distance between each point on each axis in the units of the coordinate system (e.g. for WGS84, 1.0 will produce a grid of points every 1 latitude and 1 longitude.)
+		crs: CRS of returned GeoSeries.
+		reverse_y: Start counting from the maximum y instead of the mininum (this is likely more intuitive for grids in WGS84 coordinates as minimum y will be south and not north.)
+	"""
+	if isinstance(resolution, tuple):
+		x_res, y_res = resolution
+	else:
+		x_res = y_res = resolution
+	x = numpy.arange(min_x, max_x, x_res)
+	y = numpy.arange(min_y, max_y, y_res)
+	return get_box_grid(x, y, crs, reverse_y=reverse_y)
