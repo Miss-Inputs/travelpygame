@@ -21,7 +21,7 @@ def get_best_pic(
 	use_haversine: bool = False,
 	reverse: bool = False,
 ) -> tuple[Any, float]:
-	"""Finds the best pic among a collection of pics. If pics is a GeoDataFrame/GeoSeries, returns the index in that object and not the numeric index.
+	"""Finds the best pic among a collection of pics. If pics is a GeoDataFrame/GeoSeries or PointSet, returns the index in that object and not the numeric index.
 
 	Arguments:
 		reverse: If true, get the furthest away pic, for whatever reason.

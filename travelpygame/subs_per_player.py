@@ -19,6 +19,7 @@ from .morphior_api import get_morphior_all_submissions
 from .tpg_data import (
 	PlayerName,
 	PlayerUsername,
+	Round,
 	combine_player_submissions_to_point_sets,
 	get_main_tpg_rounds_with_path,
 	load_rounds,
@@ -116,7 +117,7 @@ def save_submissions_per_user(subs: Mapping[PlayerUsername, geopandas.GeoDataFra
 
 async def load_or_fetch_per_player_submissions(
 	path: Path | None = None,
-	main_data_path: Path | None = None,
+	main_data_path: Path | list[Round] | None = None,
 	aliases: Mapping[PlayerName, PlayerUsername] | None = None,
 	rounding: int = 6,
 	session: 'ClientSession | None' = None,
@@ -136,7 +137,12 @@ async def load_or_fetch_per_player_submissions(
 	if main_data_path:
 		# TODO: This should load a Season when we store that instead of list[Round]
 		# Well, it should also try and load all seasons of all games, but we're getting there
-		main_data = await get_main_tpg_rounds_with_path(main_data_path, session=session)
+		# Also have the option for it to be already loaded, I guess
+		main_data = (
+			await get_main_tpg_rounds_with_path(main_data_path, session=session)
+			if isinstance(main_data_path, Path)
+			else main_data_path
+		)
 		main_data_counts = combine_player_submissions(main_data, aliases, rounding)
 	elif load_main_data:
 		main_data_counts = await get_main_tpg_subs_per_player(rounding, aliases, session)
