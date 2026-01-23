@@ -86,13 +86,17 @@ class PointSet:
 	def centroid(self):
 		"""Takes into account `projected_crs`."""
 		proj_centroid = self.projected_multipoint.centroid
-		#I guess we could cache from_proj here, but it's not that important
+		# I guess we could cache from_proj here, but it's not that important
 		_to_proj, from_proj = get_transform_methods(self.gdf.crs or 'WGS84', self.projected_crs)
 		return transform(from_proj, proj_centroid)
 
 
 def validate_points(
-	geo: GeoSeries | GeoDataFrame, rounding_tolerance: int | None = 6, name_for_log: Any = None
+	geo: GeoSeries | GeoDataFrame,
+	rounding_tolerance: int | None = 6,
+	name_for_log: Any = None,
+	*,
+	log_duplicates: bool = True,
 ) -> tuple[GeoSeries, set[Hashable]]:
 	"""Validates a point set to check it has no NaN/infinity coordinates, and removes duplicates (by default, considering points the same if their coordinates rounded down to 6 decimal places are the same). Does not necessarily validate that anything is not a point (at least not properly), you should do that yourself.
 
@@ -139,12 +143,13 @@ def validate_points(
 
 		if coords_valid:
 			if (x, y) in first_points:
-				logger.info(
-					'%s had duplicate point %s (identical to %s, %s)',
-					name_for_log,
-					index,
-					*first_points[x, y],
-				)
+				if log_duplicates:
+					logger.info(
+						'%s had duplicate point %s (identical to %s, %s)',
+						name_for_log,
+						index,
+						*first_points[x, y],
+					)
 				to_drop.add(index)
 			else:
 				assert isinstance(item, shapely.Point), (
