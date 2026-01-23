@@ -58,22 +58,20 @@ async def read_dataframe_pickle_async(path: PurePath | str, **tqdm_kwargs) -> pa
 	return await asyncio.to_thread(read_dataframe_pickle, path, **tqdm_kwargs)
 
 
-def read_geodataframe(path: PurePath | str) -> geopandas.GeoDataFrame:
-	"""Reads a GeoDataFrame from a path, which can be compressed using Zstandard.
-
-	Raises:
-		TypeError: If path ever contains something other than a GeoDataFrame.
-	"""
+def read_geodataframe(path: PurePath | str, *, use_tqdm: bool = True) -> geopandas.GeoDataFrame:
+	"""Reads a GeoDataFrame from a path, which can be compressed using Zstandard."""
 	if not isinstance(path, Path):
 		path = Path(path)
 	if path.suffix.lower() == '.zst':
 		with (
 			zstd.ZstdFile(path, 'r') as zst,
-			tqdm.wrapattr(zst, 'read', path.stat().st_size, desc=f'Reading {path}') as f,
+			tqdm.wrapattr(
+				zst, 'read', path.stat().st_size, desc=f'Reading {path}', disable=not use_tqdm
+			) as f,
 		):
 			# Getting the uncompressed size of zst would be nice but I don't think we can do that
 			gdf = geopandas.read_file(f)
-	else:
+	elif use_tqdm:
 		with (
 			path.open('rb') as raw,
 			tqdm.wrapattr(raw, 'read', path.stat().st_size, desc=f'Reading {path}') as f,
@@ -81,15 +79,16 @@ def read_geodataframe(path: PurePath | str) -> geopandas.GeoDataFrame:
 		):
 			# shut up nerd I don't care if it has a GPKG application_id or whatever (does this warning still get shown? Maybe not)
 			gdf = geopandas.read_file(f)
-	if not isinstance(gdf, geopandas.GeoDataFrame):
-		# Not sure if this ever happens, or if the type hint is just like that
-		raise TypeError(f'Expected {path} to contain GeoDataFrame, got {type(gdf)}')
+	else:
+		gdf = geopandas.read_file(path)
 	return gdf
 
 
-async def read_geodataframe_async(path: PurePath | str) -> geopandas.GeoDataFrame:
+async def read_geodataframe_async(
+	path: PurePath | str, *, use_tqdm: bool = True
+) -> geopandas.GeoDataFrame:
 	"""Reads a GeoDataFrame from a path in another thread, which can be compressed using Zstandard."""
-	return await asyncio.to_thread(read_geodataframe, path)
+	return await asyncio.to_thread(read_geodataframe, path, use_tqdm=use_tqdm)
 
 
 def _geodataframe_to_normal_df(
@@ -298,8 +297,9 @@ def load_points(
 	*,
 	has_header: bool | None = None,
 	keep_lnglat_cols: bool = False,
+	use_tqdm: bool = True,
 ) -> geopandas.GeoDataFrame:
-	"""Loads a file containing coordinates as a GeoDataFrame, either as a DataFrame (csv/Excel/pickle/etc) containing longitude and latitude columns, or a file directly supported by geopandas"""
+	"""Loads a file containing coordinates as a GeoDataFrame, either as a DataFrame (csv/Excel/pickle/etc) containing longitude and latitude columns, or a file directly supported by geopandas."""
 	if not isinstance(path, PurePath):
 		path = Path(path)
 	if not ext:
@@ -308,7 +308,7 @@ def load_points(
 		if ext in dataframe_compressed_exts:
 			ext = suffixes[-2][1:].lower()
 	if ext not in dataframe_exts:
-		return read_geodataframe(path)
+		return read_geodataframe(path, use_tqdm=use_tqdm)
 	return _load_df_as_points(
 		path,
 		latitude_column_name,
@@ -329,6 +329,7 @@ async def load_points_async(
 	*,
 	has_header: bool | None = None,
 	keep_lnglat_cols: bool = False,
+	use_tqdm: bool = True,
 ) -> geopandas.GeoDataFrame:
 	"""Loads a file containing coordinates as a GeoDataFrame asynchronously, either as a DataFrame (csv/Excel/pickle/etc) containing longitude and latitude columns, or a file directly supported by geopandas"""
 	if not isinstance(path, PurePath):
@@ -339,7 +340,7 @@ async def load_points_async(
 		if ext in dataframe_compressed_exts:
 			ext = suffixes[-2][1:].lower()
 	if ext not in dataframe_exts:
-		return await read_geodataframe_async(path)
+		return await read_geodataframe_async(path, use_tqdm=use_tqdm)
 	return await asyncio.to_thread(
 		_load_df_as_points,
 		path,
@@ -382,7 +383,9 @@ known_geo_exts = {'geojson', 'gpkg', 'shp'}
 """A subset of file extensions that we can be reasonably sure will be supported."""
 
 
-def maybe_load_geodataframe(path: str | PurePath) -> geopandas.GeoDataFrame | None:
+def maybe_load_geodataframe(
+	path: str | PurePath, *, use_tqdm: bool = True
+) -> geopandas.GeoDataFrame | None:
 	"""Attemps to load a GeoDataFrame from a path, but returns None if not supported."""
 	try:
 		from pyogrio.errors import DataSourceError as UnsupportedError  # noqa: PLC0415
@@ -395,6 +398,6 @@ def maybe_load_geodataframe(path: str | PurePath) -> geopandas.GeoDataFrame | No
 			)
 			return None
 	try:
-		return read_geodataframe(path)
+		return read_geodataframe(path, use_tqdm=use_tqdm)
 	except UnsupportedError:
 		return None
