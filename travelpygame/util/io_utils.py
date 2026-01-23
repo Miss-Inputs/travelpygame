@@ -1,6 +1,7 @@
 """Stuff for reading/writing files easier, generally pandas or geopandas objects."""
 
 import asyncio
+import logging
 import sys
 import warnings
 from collections.abc import Hashable
@@ -19,6 +20,8 @@ else:
 	from backports import zstd
 
 from .pandas_utils import find_first_matching_column
+
+logger = logging.getLogger(__name__)
 
 
 class UnsupportedFileException(Exception):
@@ -373,3 +376,25 @@ async def geometry_to_file_async(
 		data = [geom]
 	gs = geopandas.GeoSeries(data, crs=crs)
 	await asyncio.to_thread(gs.to_file, path)
+
+
+known_geo_exts = {'geojson', 'gpkg', 'shp'}
+"""A subset of file extensions that we can be reasonably sure will be supported."""
+
+
+def maybe_load_geodataframe(path: str | PurePath) -> geopandas.GeoDataFrame | None:
+	"""Attemps to load a GeoDataFrame from a path, but returns None if not supported."""
+	try:
+		from pyogrio.errors import DataSourceError as UnsupportedError  # noqa: PLC0415
+	except ImportError:
+		try:
+			from fiona.errors import DriverError as UnsupportedError  # noqa: PLC0415
+		except ImportError:
+			logger.warning(
+				'You have neither pyogrio or fiona installed, so nothing is loadable anyway'
+			)
+			return None
+	try:
+		return read_geodataframe(path)
+	except UnsupportedError:
+		return None
