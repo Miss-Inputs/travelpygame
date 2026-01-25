@@ -10,7 +10,7 @@ from statistics import mean
 from typing import Any
 
 import pandas
-from geopandas import GeoDataFrame, GeoSeries
+from geopandas import GeoDataFrame
 from shapely import Point
 from tqdm.auto import tqdm
 
@@ -61,7 +61,7 @@ class Simulation:
 				use_haversine=self.use_haversine,
 				reverse=self.strategy == SimulatedStrategy.Furthest,
 			)
-			desc = best_index if isinstance(point_set, GeoSeries) else None
+			desc = best_index if isinstance(best_index, str) else None
 			point = point_set.points[best_index]
 			assert isinstance(point, Point), f'point was {type(point)}, expected Point'
 		return point, distance, desc
