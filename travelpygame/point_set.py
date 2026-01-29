@@ -25,7 +25,7 @@ _generic_projected_crs = pyproj.CRS(
 
 
 class PointSet:
-	"""Stores a point set and other properties on it to make converting between lots of different types easier."""
+	"""Stores a point set and other properties on it to make converting between lots of different types easier. Note: .gdf and .points are intended to be read-only, modifying one might or might not update the other."""
 
 	def __init__(self, gdf: GeoDataFrame, name: str, projected_crs: Any | None = None):
 		self.gdf: GeoDataFrame = gdf
@@ -33,6 +33,10 @@ class PointSet:
 		self.points = gdf.geometry
 		self.projected_crs_arg = projected_crs
 		"""Argument which may be a CRS or a string etc and has not been validated yet"""
+
+	@property
+	def count(self) -> int:
+		return self.gdf.size
 
 	@cached_property
 	def point_array(self):
