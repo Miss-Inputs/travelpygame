@@ -36,7 +36,7 @@ class PointSet:
 
 	@property
 	def count(self) -> int:
-		return self.gdf.size
+		return self.gdf.index.size
 
 	@cached_property
 	def point_array(self):
