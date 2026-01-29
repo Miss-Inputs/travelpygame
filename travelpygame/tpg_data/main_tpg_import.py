@@ -1,4 +1,6 @@
+import logging
 import re
+from collections import Counter
 from typing import TYPE_CHECKING, Any
 
 from tqdm.auto import tqdm
@@ -9,6 +11,8 @@ from .classes import PlayerName, PlayerUsername, Round, Submission
 
 if TYPE_CHECKING:
 	from aiohttp import ClientSession
+
+logger = logging.getLogger(__name__)
 
 
 def _convert_submission(
@@ -130,18 +134,33 @@ async def get_player_username(
 
 
 async def get_player_display_names(
-	session: 'ClientSession|None' = None,
+	session: 'ClientSession|None' = None, *, avoid_duplicates: bool = True
 ) -> dict[PlayerUsername, PlayerName]:
-	"""Returns a dict mapping Discord usernames to display names."""
+	"""Returns a dict mapping Discord usernames to display names.
+
+	Arguments:
+		avoid_duplicates: If true (default), maps any usernames that would cause duplicates to themselves instead of the display name.
+	"""
 	if session is None:
 		async with tpg_api.get_session() as sesh:
 			return await get_player_display_names(sesh)
 
-	names = {}
+	names: dict[PlayerUsername, PlayerName] = {}
 	players = await tpg_api.get_players(session)
 	for player in players:
-		if not player.username:
+		username = player.username or player.discord_id
+		if not username:
 			continue
-		names[player.username] = player.name
+		names[username] = player.name
+
+	if avoid_duplicates:
+		counter = Counter(names.values())
+		duplicate_names = {name for name, count in counter.items() if count > 1}
+		if duplicate_names:
+			logger.info('Duplicate display names were found: %s', duplicate_names)
+			names = {
+				username: username if name in duplicate_names else name
+				for username, name in names.items()
+			}
 
 	return names
