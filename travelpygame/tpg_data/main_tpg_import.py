@@ -148,9 +148,11 @@ async def get_player_display_names(
 	names: dict[PlayerUsername, PlayerName] = {}
 	players = await tpg_api.get_players(session)
 	for player in players:
-		username = player.username or player.discord_id
+		username = player.username
 		if not username:
-			continue
+			if not player.discord_id:
+				continue
+			username = f'<{player.discord_id}>'
 		names[username] = player.name
 
 	if avoid_duplicates:
