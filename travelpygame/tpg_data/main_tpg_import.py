@@ -5,7 +5,7 @@ from tqdm.auto import tqdm
 
 from travelpygame import tpg_api
 
-from .classes import Round, Submission
+from .classes import PlayerName, PlayerUsername, Round, Submission
 
 if TYPE_CHECKING:
 	from aiohttp import ClientSession
@@ -127,3 +127,21 @@ async def get_player_username(
 			return player.username
 
 	return None
+
+
+async def get_player_display_names(
+	session: 'ClientSession|None' = None,
+) -> dict[PlayerUsername, PlayerName]:
+	"""Returns a dict mapping Discord usernames to display names."""
+	if session is None:
+		async with tpg_api.get_session() as sesh:
+			return await get_player_display_names(sesh)
+
+	names = {}
+	players = await tpg_api.get_players(session)
+	for player in players:
+		if not player.username:
+			continue
+		names[player.username] = player.name
+
+	return names
