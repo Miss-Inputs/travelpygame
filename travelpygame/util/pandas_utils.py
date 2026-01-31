@@ -121,7 +121,7 @@ def maybe_set_index_name_col[T: 'pandas.DataFrame'](
 
 def try_auto_set_index[T: 'pandas.DataFrame'](
 	df: T,
-	col_name: Hashable | None,
+	col_name: Hashable | None = None,
 	log_context: Any | None = None,
 	*,
 	try_first_unique: bool = False,
