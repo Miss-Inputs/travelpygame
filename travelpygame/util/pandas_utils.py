@@ -88,7 +88,7 @@ def maybe_set_index_name_col[T: 'pandas.DataFrame'](
 	*,
 	try_autodetect: bool = True,
 	try_pattern_match: bool = True,
-	try_first_unique: bool = True,
+	try_first_unique: bool = False,
 ) -> tuple[T, Hashable | None]:
 	"""Attempts to set the index of a DataFrame and return the new copy, if and only if it is unique. Can optionally try and detect columns that look like they contain names, or fall back to the first unique column.
 
