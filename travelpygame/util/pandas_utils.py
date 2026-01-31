@@ -83,7 +83,7 @@ def _maybe_set_name_from_pattern[T: 'pandas.DataFrame'](
 
 def maybe_set_index_name_col[T: 'pandas.DataFrame'](
 	df: T,
-	name_col: Hashable | None,
+	name_col: Hashable | None = None,
 	log_context: Any = None,
 	*,
 	try_autodetect: bool = True,
