@@ -68,7 +68,7 @@ from .pandas_utils import (
 	find_first_matching_column,
 	first_unique_column_label,
 	maybe_set_index_name_col,
-	try_set_index_name_col,
+	try_auto_set_index,
 )
 from .point_construction import (
 	get_extreme_corner_points,
@@ -138,6 +138,6 @@ __all__ = [
 	'read_dataframe_pickle_async',
 	'read_geodataframe',
 	'read_geodataframe_async',
-	'try_set_index_name_col',
+	'try_auto_set_index',
 	'wgs84_geod',
 ]
