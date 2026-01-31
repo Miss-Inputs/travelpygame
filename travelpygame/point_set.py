@@ -1,4 +1,5 @@
 import logging
+from collections import Counter
 from collections.abc import Hashable
 from functools import cached_property
 from typing import Any
@@ -163,3 +164,21 @@ def validate_points(
 		else:
 			to_drop.add(index)
 	return geo.drop(list(to_drop)) if to_drop else geo, to_drop
+
+
+def get_visited_regions(point_set: PointSet, regions: GeoDataFrame | GeoSeries):
+	"""Finds regions that a point set contains, and that it does not contain, and how often it contains each region.
+
+	Assumes point_set and regions are in the same CRS.
+
+	Returns:
+		Counter with keys = indexes in regions and values = amount that this region was visited in the point set, including 0 where it was not visited
+	"""
+	geo = regions.geometry if isinstance(regions, GeoDataFrame) else regions
+	region_indices, _point_indices = point_set.gdf.sindex.query(
+		geo, 'contains', output_format='indices'
+	)
+	indexes = regions.index[region_indices]
+	# hrm would it be faster to construct the Counter directly
+	counts = indexes.value_counts(sort=True).reindex(regions.index, fill_value=0)
+	return Counter(counts.to_dict())

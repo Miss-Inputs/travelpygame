@@ -1,4 +1,4 @@
-"""Various stats-related things for point sets"""
+"""Various stats-related things for point sets, that maybe are too complex for putting them in the point_set module to feel right."""
 
 import logging
 from collections.abc import Callable, Collection, Hashable, Sequence
