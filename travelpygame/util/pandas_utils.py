@@ -67,12 +67,12 @@ def _maybe_set_name_from_pattern[T: 'pandas.DataFrame'](
 	df: T, log_context: Any = None
 ) -> tuple[T | None, Hashable | None]:
 	cols_lower = df.columns.str.lower()
-	ends_with_name = cols_lower[cols_lower.str.endswith('_name_')]
+	ends_with_name = df.columns[cols_lower.str.endswith('_name')]
 	if not ends_with_name.empty:
 		new_df, col_name = _maybe_set_index_inner(df, ends_with_name, log_context)
 		if new_df is not None:
 			return new_df, col_name
-	contains_name = cols_lower[cols_lower.str.contains('_name_', regex=False)]
+	contains_name = df.columns[cols_lower.str.contains('_name_', regex=False)]
 	if not contains_name.empty:
 		new_df, col_name = _maybe_set_index_inner(df, contains_name, log_context)
 		if new_df is not None:
