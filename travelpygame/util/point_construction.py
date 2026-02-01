@@ -311,6 +311,7 @@ def get_fixed_grid(
 		crs: CRS of returned GeoSeries.
 		reverse_y_in_index: Start counting from the maximum y instead of the mininum (this is likely more intuitive for grids in WGS84 coordinates as minimum y will be south and not north.)
 	"""
+	# This name kinda sucks, would intuitively a "fixed grid" be more of what get_spaced_grid does? Doesn't seem right but I can't think of better names for the two.
 	if isinstance(resolution, tuple):
 		x_res, y_res = resolution
 	else:
@@ -342,8 +343,8 @@ def get_spaced_grid(
 		x_amount, y_amount = amount
 	else:
 		x_amount = y_amount = amount
-	x = numpy.linspace(min_x, max_x, x_amount)
-	y = numpy.linspace(min_y, max_y, y_amount)
+	x = numpy.linspace(min_x, max_x, x_amount + 1)
+	y = numpy.linspace(min_y, max_y, y_amount + 1)
 	return get_grid(x, y, crs, reverse_y_in_index=reverse_y_in_index)
 
 
@@ -404,8 +405,8 @@ def get_spaced_grid_over_geodataframe(
 		x_amount, y_amount = amount
 	else:
 		x_amount = y_amount = amount
-	x = numpy.linspace(min_x, max_x, x_amount)
-	y = numpy.linspace(min_y, max_y, y_amount)
+	x = numpy.linspace(min_x, max_x, x_amount + 1)
+	y = numpy.linspace(min_y, max_y, y_amount + 1)
 	return get_grid_over_geodataframe(gdf, x, y, reverse_y_in_index=reverse_y_in_index)
 
 
@@ -477,4 +478,31 @@ def get_fixed_box_grid(
 		x_res = y_res = resolution
 	x = numpy.arange(min_x, max_x, x_res)
 	y = numpy.arange(min_y, max_y, y_res)
+	return get_box_grid(x, y, crs, reverse_y=reverse_y)
+
+
+def get_spaced_box_grid(
+	min_x: float,
+	min_y: float,
+	max_x: float,
+	max_y: float,
+	amount: int | tuple[int, int],
+	crs: Any = 'wgs84',
+	*,
+	reverse_y: bool = True,
+) -> geopandas.GeoSeries:
+	"""Creates a grid of a specific amount of boxes, evenly spaced. Index of the returned GeoSeries will be a MultiIndex with level 0 = counting upwards for every lng/x and level 1 = counting upwards for every lat/y.
+
+	Arguments:
+		min_x, min_y, max_x, max_y: Boundary of grid.
+		amount: Amount of boxes in each direction (i.e. output will contain amount ** 2 points.)
+		crs: CRS of returned GeoSeries.
+		reverse_y: Start counting from the maximum y instead of the mininum (this is likely more intuitive for grids in WGS84 coordinates as minimum y will be south and not north.)
+	"""
+	if isinstance(amount, tuple):
+		x_amount, y_amount = amount
+	else:
+		x_amount = y_amount = amount
+	x = numpy.linspace(min_x, max_x, x_amount + 1)
+	y = numpy.linspace(min_y, max_y, y_amount + 1)
 	return get_box_grid(x, y, crs, reverse_y=reverse_y)
