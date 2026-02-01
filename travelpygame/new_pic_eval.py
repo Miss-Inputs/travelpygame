@@ -23,6 +23,8 @@ from .util.kml import parse_submission_kml
 if TYPE_CHECKING:
 	import numpy
 
+	from .point_set import PointSet
+
 logger = logging.getLogger(__name__)
 
 
@@ -67,7 +69,7 @@ def load_points_or_rounds(paths: Path | Sequence[Path]) -> GeoDataFrame:
 
 
 def find_if_new_pics_better(
-	points: PointCollection,
+	points: 'PointCollection | PointSet',
 	new_points: PointCollection,
 	targets: PointCollection,
 	*,
@@ -100,7 +102,7 @@ def find_if_new_pics_better(
 
 
 def find_new_pic_diffs(
-	points: PointCollection,
+	points: 'PointCollection | PointSet',
 	new_point: Point,
 	targets: PointCollection,
 	*,
@@ -144,7 +146,7 @@ def find_new_pic_diffs(
 
 
 def find_new_pics_better_individually(
-	points: PointCollection,
+	points: 'PointCollection | PointSet',
 	new_points: PointCollection,
 	targets: PointCollection,
 	*,
