@@ -138,6 +138,53 @@ other_df_readers = {
 }
 """I don't know what these really do or if they work as expected because I don't use these file types but they exist and seem straightforward"""
 dataframe_exts = csv_exts | excel_exts | pickle_exts | other_df_readers.keys()
+html_exts = {'html', 'htm', 'xhtml'}
+
+
+def output_dataframe(  # noqa: C901 #no u
+	df: pandas.DataFrame,
+	path: PurePath | str,
+	force_ext: str | None = None,
+	*,
+	index: bool | None = None,
+):
+	"""Generically output a DataFrame to a path, automatically using to_csv/to_excel/etc as needed.
+
+	Arguments:
+		df: pandas DataFrame, if this is a GeoDataFrame you should probably use output_geodataframe instead as this will not convert it for you.
+		path: File path to save to.
+		force_ext: If this is specified (without a leading dot), pretend the suffix of path is this when detecting which save function to use, so you can e.g. pass "pickle" to save a pickle file with any extension since that does not really have a specific extension.
+		index: Whether to output the index as a column or not (for CSV/Excel/etc). If None or unspecified, output the index if it is not a RangeIndex.
+	"""
+	if force_ext:
+		ext = force_ext
+	else:
+		if not isinstance(path, PurePath):
+			# We just need the suffix
+			path = PurePath(path)
+		# TODO: Handle compressed extensions, I guess we would take the extension before the compressed one
+		ext = path.suffix[1:].lower()
+
+	if index is None:
+		index = not isinstance(df.index, pandas.RangeIndex)
+
+	if ext == 'csv':
+		df.to_csv(path, index=index)
+	elif ext == 'tsv':
+		df.to_csv(path, sep='\t', index=index)
+	elif ext in excel_exts:
+		df.to_excel(path, index=index)
+		# Could autodetect which engine we are using and add some better formatting maybe
+	elif ext in pickle_exts:
+		df.to_pickle(path)
+	elif ext in html_exts:
+		df.to_html(path, index=index)
+	elif ext == 'json':
+		df.to_json(path, orient='index' if index else 'records')
+	elif ext == 'md':
+		df.to_markdown(path, index=index)
+	else:
+		raise UnsupportedFileException(f'Not sure how to output {ext}')
 
 
 def output_geodataframe(
