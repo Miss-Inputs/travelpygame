@@ -1,3 +1,5 @@
+import asyncio
+import logging
 from typing import Any, Literal
 
 import aiohttp
@@ -5,6 +7,8 @@ import backoff
 import pydantic_core
 from async_lru import alru_cache
 from pydantic import BaseModel
+
+logger = logging.getLogger(__name__)
 
 
 class NominatimReverseJSONv2(BaseModel, extra='allow'):
@@ -95,17 +99,20 @@ class GeocodeError(Exception):
 	pass
 
 
-DEFAULT_ENDPOINT = 'https://nominatim.geocoding.ai/reverse'
+DEFAULT_NOMINATIM_ENDPOINT = 'https://osm-nominatim.gs.mil/reverse'
+"""Yes this is the US government, but it doesn't appear to have any limitations on it"""
+MAIN_NOMINATIM_ENDPOINT = 'https://nominatim.geocoding.ai/reverse'
 """It seems like this just redirects to normal OSM now? So maybe that's not good"""
+
 
 @alru_cache
 @backoff.on_exception(backoff.expo, aiohttp.ClientResponseError)
-async def reverse_geocode_address(
+async def get_address_nominatim(
 	lat: float,
 	lng: float,
 	session: aiohttp.ClientSession,
-	lang: str = 'en',
-	endpoint: str = DEFAULT_ENDPOINT,
+	lang: str | None = None,
+	endpoint: str | None = None,
 	request_timeout: int = 30,
 ) -> str | None:
 	"""Finds an address for a point using asynchronous requests.
@@ -116,12 +123,14 @@ async def reverse_geocode_address(
 	Arguments:
 		lat: Latitude of point in WGS84.
 		lng: Longitude of point in WGS84.
-		session: Optional requests.Session if you have one, otherwise does not use a session. Recommended if you are using this in a loop, etc.
+		session: aiohttp session.
 		request_timeout: Request timeout in seconds, defaults to 30 seconds.
 
 	Returns:
 		Address as string, or None if nothing could be found.
 	"""
+	endpoint = endpoint or DEFAULT_NOMINATIM_ENDPOINT
+	lang = lang or 'en'
 	params = {
 		'lat': lat,
 		'lon': lng,
@@ -134,6 +143,9 @@ async def reverse_geocode_address(
 	) as response:
 		response.raise_for_status()
 		text = await response.text()
+	if endpoint == MAIN_NOMINATIM_ENDPOINT:
+		# Respect the usage policy!!! This is the wrong way to go about this but it's more important that we follow the rules before I figure that one out
+		await asyncio.sleep(1)
 
 	j = pydantic_core.from_json(text)
 	error = j.get('error')
@@ -144,13 +156,14 @@ async def reverse_geocode_address(
 	return NominatimReverseJSONv2.model_validate(j).display_name
 
 
+@alru_cache
 @backoff.on_exception(backoff.expo, aiohttp.ClientResponseError)
-async def reverse_geocode_components(
+async def get_address_components_nominatim(
 	lat: float,
 	lng: float,
 	session: aiohttp.ClientSession,
-	lang: str = 'en',
-	endpoint: str = DEFAULT_ENDPOINT,
+	lang: str | None = None,
+	endpoint: str | None = None,
 	request_timeout: int = 10,
 ) -> NominatimReverseGeocodeJSON | None:
 	"""Returns individual address components instead of just a string.
@@ -158,6 +171,8 @@ async def reverse_geocode_components(
 	Raises:
 		GeocodeError: If some weird error happens that isn't just 'unable to geocode'
 	"""
+	endpoint = endpoint or DEFAULT_NOMINATIM_ENDPOINT
+	lang = lang or 'en'
 	params = {
 		'lat': lat,
 		'lon': lng,
@@ -171,6 +186,10 @@ async def reverse_geocode_components(
 	) as response:
 		response.raise_for_status()
 		text = await response.text()
+	if endpoint == MAIN_NOMINATIM_ENDPOINT:
+		# Respect the usage policy!!! This is the wrong way to go about this but it's more important that we follow the rules before I figure that one out
+		await asyncio.sleep(1)
+
 	j = pydantic_core.from_json(text)
 	error = j.get('error')
 	if error == 'Unable to geocode':
