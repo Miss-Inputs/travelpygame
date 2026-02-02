@@ -11,6 +11,7 @@ class NominatimReverseJSONv2(BaseModel, extra='allow'):
 	"""JSON v2 format, used by reverse_geocode_address."""
 
 	place_id: int
+	"""OSM place ID for the nearest object found, which is the address we use."""
 	licence: str
 	"""Copyright string"""
 	osm_type: str
@@ -27,6 +28,7 @@ class NominatimReverseJSONv2(BaseModel, extra='allow'):
 	name: str
 	"""Name of the node"""
 	display_name: str
+	"""Full formatted address."""
 	boundingbox: tuple[float, float, float, float]
 	"""min lat, max lat, min long, max long"""
 
@@ -56,6 +58,7 @@ class NominatimGeocodingProperties(BaseModel, extra='allow'):
 	osm_type: str
 	accuracy: int
 	label: str
+	"""Fully formatted address."""
 	name: str | None = None
 	postcode: str | None = None
 	street: str | None = None
@@ -93,7 +96,7 @@ class GeocodeError(Exception):
 
 
 DEFAULT_ENDPOINT = 'https://nominatim.geocoding.ai/reverse'
-
+"""It seems like this just redirects to normal OSM now? So maybe that's not good"""
 
 @alru_cache
 @backoff.on_exception(backoff.expo, aiohttp.ClientResponseError)
