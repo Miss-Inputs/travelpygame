@@ -1,5 +1,6 @@
 import warnings
 from collections.abc import Callable, Hashable, Iterable
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -92,3 +93,22 @@ def format_dataframe(
 	_format_dataframe_inner(df, number_cols, format_number)
 	_format_dataframe_inner(df, percent_cols, '{:%}'.format)
 	return df
+
+
+def to_graph(
+	df: 'DataFrame',
+	source_col: str | None,
+	dest_col: str,
+	weight_col: str | None,
+	output_path: Path,
+):
+	with output_path.open('wt', encoding='utf8') as f:
+		f.write('digraph "" {\n')
+		for index, row in df.iterrows():
+			source = str(index if source_col is None else row[source_col]).replace('"', '\\"')
+			dest = str(row[dest_col]).replace('"', '\\"')
+			line = f'"{source}" -> "{dest}"'
+			if weight_col:
+				line += f' [weight={row[weight_col]}]'
+			f.write(f'{line};\n')
+		f.write('}')

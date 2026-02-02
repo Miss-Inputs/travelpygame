@@ -63,6 +63,7 @@ from .other import (
 	format_point,
 	format_xy,
 	get_ordinal,
+	to_graph,
 )
 from .pandas_utils import (
 	detect_cat_cols,
@@ -140,6 +141,7 @@ __all__ = [
 	'read_dataframe_pickle_async',
 	'read_geodataframe',
 	'read_geodataframe_async',
+	'to_graph',
 	'try_auto_set_index',
 	'wgs84_geod',
 ]

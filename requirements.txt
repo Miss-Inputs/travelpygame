@@ -1,4 +1,6 @@
 aiohttp
+async-lru
+backoff
 backports.zstd; python_version < '3.14'
 geopandas
 numpy
