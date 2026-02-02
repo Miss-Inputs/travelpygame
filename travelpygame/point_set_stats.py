@@ -2,6 +2,7 @@
 
 import logging
 from collections.abc import Callable, Collection, Hashable, Sequence
+from dataclasses import dataclass
 from enum import Enum, auto
 from itertools import product
 from operator import itemgetter
@@ -18,6 +19,8 @@ from .util import geod_distance, get_closest_index, get_distances, get_geometry_
 
 if TYPE_CHECKING:
 	from shapely.geometry.base import BaseGeometry
+
+	from .point_set import PointSet
 
 logger = logging.getLogger(__name__)
 
@@ -232,29 +235,29 @@ class Distance1ToManyMethod(Enum):
 
 
 def _point_set_distance_inner(
-	point_a: 'BaseGeometry', points_b: GeoSeries, method: Distance1ToManyMethod
+	point_a: 'BaseGeometry', points_b: 'PointSet', method: Distance1ToManyMethod
 ) -> tuple[float, float, Any]:
 	"""Returns some aggregation of distances from point_a to points in points_b according to method, but also closest distance and index/name of closest point in points_b."""
 	if not isinstance(point_a, shapely.Point):
 		raise TypeError(f'point_a was {type(point_a)}, expected Point')
-	distances = get_distances(point_a, points_b)
-	min_index = distances.argmin().item()
+	distances = points_b.get_all_distances(point_a)
+	min_index = distances.idxmin()
 	min_dist = distances[min_index]
 	if method == Distance1ToManyMethod.Mean:
-		score = distances.mean().item()
+		score = distances.mean()
 	elif method == Distance1ToManyMethod.Median:
-		score = numpy.median(distances).item()
+		score = numpy.median(distances)
 	elif method == Distance1ToManyMethod.Min:
 		score = min_dist
 	elif method == Distance1ToManyMethod.Max:
-		score = distances.max().item()
+		score = distances.max()
 	elif method == Distance1ToManyMethod.Sum:
-		score = distances.sum().item()
+		score = distances.sum()
 	elif method == Distance1ToManyMethod.SquaredMean:
-		score = numpy.square(distances.mean()).item()
+		score = numpy.square(distances.mean())
 	elif method == Distance1ToManyMethod.SquaredSum:
-		score = numpy.square(distances.sum()).item()
-	return score, min_dist, points_b.index[min_index]
+		score = numpy.square(distances.sum())
+	return score, min_dist, min_index
 
 
 class DistanceAggMethod(Enum):
@@ -319,13 +322,25 @@ def get_distance_method_combinations(
 	return d
 
 
+@dataclass
+class PointSetDistanceInfo:
+	distance: float
+	"""Distance/dissimilarity (higher = less similar)"""
+	closest_distance: float
+	"""Distance between closest point of A <-> closest point of B"""
+	closest_a: str
+	"""Index/name of closest point in A to any point of B"""
+	closest_b: str
+	"""Index/name of closest point in B to any point of A"""
+
+
 def get_point_set_distance(
-	points_a: GeoSeries,
-	points_b: GeoSeries,
+	points_a: 'PointSet',
+	points_b: 'PointSet',
 	method: PointSetDistanceMethodType = PointSetDistanceMethod.MeanMean,
 	*,
 	use_tqdm: bool = True,
-) -> tuple[float, float, str, str]:
+) -> PointSetDistanceInfo:
 	"""Calculates distance/difference/dissimilarity from points_a to point_b in a variety of different ways. Should be symmetrical.
 
 	Returns:
@@ -341,11 +356,11 @@ def get_point_set_distance(
 
 	with tqdm(
 		desc=f'Finding point set distance between {points_a.name} and {points_b.name}',
-		total=points_a.size + points_b.size,
+		total=points_a.count + points_b.count,
 		unit='point',
 		disable=not use_tqdm,
 	) as t:
-		for index_a, point_a in points_a.items():
+		for index_a, point_a in points_a.points.items():
 			t.update()
 			index_a = str(index_a)
 			score, closest_dist_b, index_b = _point_set_distance_inner(
@@ -353,7 +368,7 @@ def get_point_set_distance(
 			)
 			scores.append(score)
 			closest_distances.append((closest_dist_b, index_a, str(index_b)))
-		for point_b in points_b:
+		for point_b in points_b.points:
 			t.update()
 			# Do it again to ensure symmetry
 			score = _point_set_distance_inner(point_b, points_a, inner_method)[0]
@@ -375,4 +390,4 @@ def get_point_set_distance(
 		raise ValueError(f'Unknown distance aggregation method: {(outer_method)}')
 
 	closest_dist, closest_a, closest_b = min(closest_distances, key=itemgetter(0))
-	return dist, closest_dist, closest_a, closest_b
+	return PointSetDistanceInfo(dist, closest_dist, closest_a, closest_b)
