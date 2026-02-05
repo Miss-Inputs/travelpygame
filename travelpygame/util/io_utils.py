@@ -300,8 +300,8 @@ async def read_dataframe_async(
 	)
 
 
-latitude_column_names = {'lat', 'latitude', 'y', 0}
-longitude_column_names = {'lng', 'lon', 'longitude', 'x', 1}
+latitude_column_names = {'lat', 'latitude', 'Latitude', 'y', 0}
+longitude_column_names = {'lng', 'lon', 'longitude', 'Longitude', 'x', 1}
 
 
 def _load_df_as_points(
