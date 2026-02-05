@@ -1,7 +1,7 @@
 from collections.abc import Callable, Hashable, Iterable, Sequence
 from functools import cache, partial
 from itertools import chain
-from typing import Any
+from typing import Any, overload
 
 import numpy
 import pyproj
@@ -26,13 +26,66 @@ def get_poly_vertices(poly: shapely.Polygon | shapely.MultiPolygon) -> list[shap
 	return out.tolist()
 
 
+@overload
+def wgs84_to_cartesian(lat: float, lng: float) -> tuple[float, float, float]: ...
+@overload
+def wgs84_to_cartesian(
+	lat: numpy.ndarray, lng: numpy.ndarray
+) -> tuple[numpy.ndarray, numpy.ndarray, numpy.ndarray]: ...
+
+
+def wgs84_to_cartesian(
+	lat: float | numpy.ndarray, lng: float | numpy.ndarray
+) -> tuple[float, float, float] | tuple[numpy.ndarray, numpy.ndarray, numpy.ndarray]:
+	phi = numpy.radians(lat)
+	lamb = numpy.radians(lng)
+	x = numpy.cos(phi) * numpy.cos(lamb)
+	y = numpy.cos(phi) * numpy.sin(lamb)
+	z = numpy.sin(phi)
+	return x, y, z
+
+
 def get_midpoint(point_a: shapely.Point, point_b: shapely.Point):
-	# TODO: Alternate calculation that matches what other tools of this nature do
+	"""Gets the midpoint of 2 points by calculating the direction and distance from one to the other, and then going forward in that direction half that distance."""
 	# TODO: Vectorized version
 	forward_azimuth, _, dist = wgs84_geod.inv(
 		point_a.x, point_a.y, point_b.x, point_b.y, return_back_azimuth=False
 	)
 	lng, lat, _ = wgs84_geod.fwd(point_a.x, point_a.y, forward_azimuth, dist / 2)
+	return shapely.Point(lng, lat)
+
+
+def get_midpoint_centre(
+	point_a: shapely.Point | tuple[float, float], point_b: shapely.Point | tuple[float, float]
+):
+	"""Gets the midpoint of 2 points by calculating their centre of gravity (as described here: https://geomidpoint.com/calculation.html).
+
+	Assumes both point_a and point_b are in WGS84. Also assumes the earth is a sphere, which it isn't.
+	"""
+	if isinstance(point_a, shapely.Point):
+		lat_a = point_a.y
+		lng_a = point_a.x
+	else:
+		lat_a, lng_a = point_a
+	if isinstance(point_b, shapely.Point):
+		lat_b = point_b.y
+		lng_b = point_b.x
+	else:
+		lat_b, lng_b = point_b
+	x1, y1, z1 = wgs84_to_cartesian(lat_a, lng_a)
+	x2, y2, z2 = wgs84_to_cartesian(lat_b, lng_b)
+
+	x = (x1 + x2) / 2
+	y = (y1 + y2) / 2
+	z = (z1 + z2) / 2
+
+	lamb = numpy.atan2(y, x)
+	hyp = numpy.sqrt(x * x + y * y)
+	phi = numpy.atan2(z, hyp)
+
+	lat = numpy.degrees(phi)
+	lng = numpy.degrees(lamb)
+
 	return shapely.Point(lng, lat)
 
 
