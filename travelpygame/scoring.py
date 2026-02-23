@@ -91,6 +91,7 @@ def score_round(
 
 	is_antipode_5k = subs['is_antipode_5k'].astype('boolean').fillna(value=False)
 	scores = score_distances(subs['distance'], subs['is_5k'], is_antipode_5k, options)
+	scores += subs['bonus_points'].fillna(0.0)
 	ranks = scores.rank(ascending=False).astype(int)
 	scored_subs = [
 		s.model_copy(

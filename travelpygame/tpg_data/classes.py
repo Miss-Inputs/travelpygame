@@ -8,6 +8,7 @@ PlayerName = str
 PlayerUsername = str
 """Type hint for Discord username, or name as a fallback (since that can be None)."""
 
+
 class Submission(BaseModel, extra='allow'):
 	name: PlayerName
 	"""Name of whoever submitted this."""
@@ -23,6 +24,8 @@ class Submission(BaseModel, extra='allow'):
 	"""Whether this submission counted as a 5K for the antipode or not."""
 	is_tie: bool = False
 	"""Whether this submission should be considered to be a tie with other pics nearby that also have is_tie = True."""
+	bonus_points: float | None = None
+	"""Any other bonus points that should be added during score calculation, if any are needed to be set manually."""
 
 	score: float | None = None
 	"""Score for this submission, or None if score is not calculated yet."""
