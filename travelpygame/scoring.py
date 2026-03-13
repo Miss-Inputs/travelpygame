@@ -2,6 +2,7 @@ from collections import Counter, defaultdict
 from collections.abc import Collection, Mapping
 from enum import IntEnum
 from operator import attrgetter
+from typing import Any
 
 import numpy
 import pandas
@@ -59,6 +60,10 @@ def score_distances(
 	return scores if options.round_to is None else scores.round(options.round_to)
 
 
+def _ensure_float(n: Any):
+	return n if isinstance(n, float) else n.item()
+
+
 def score_round(
 	round_: 'Round',
 	options: ScoringOptions,
@@ -97,8 +102,8 @@ def score_round(
 		s.model_copy(
 			update={
 				'rank': ranks.iloc[i].item(),  # pyright: ignore[reportAttributeAccessIssue]
-				'score': scores.iloc[i].item(),
-				'distance': subs['distance'].iloc[i].item(),
+				'score': _ensure_float(scores.iloc[i]),
+				'distance': _ensure_float(subs['distance'].iloc[i]),
 				'is_5k': subs['is_5k'].iloc[i].item(),
 			}
 		)
