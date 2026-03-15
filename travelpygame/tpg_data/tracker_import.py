@@ -6,8 +6,12 @@ from travelpygame.util.kml import Placemark, SubmissionTracker, parse_submission
 
 from .classes import Round, Submission
 
+bonus_points_regex = re.compile(r'\s*\(\+(\d+)\)$')
 
-def _convert_submission_from_tracker(sub: Placemark, fivek_suffix: str | None = None) -> Submission:
+
+def _convert_submission_from_tracker(
+	sub: Placemark, fivek_suffix: str | None = None, *, parse_bonus_points: bool
+) -> Submission:
 	extra = {}
 	if sub.style:
 		style_match = re.match(r'#(icon-.+?)-(.+?)-(.+)', sub.style)
@@ -25,12 +29,20 @@ def _convert_submission_from_tracker(sub: Placemark, fivek_suffix: str | None = 
 		name = name.removesuffix(fivek_suffix)
 		is_5k = True
 
+	bonus_points = None
+	if parse_bonus_points:
+		bonus_points_match = bonus_points_regex.search(name)
+		if bonus_points_match is not None:
+			name = name[: bonus_points_match.start()]
+			bonus_points = int(bonus_points_match.group(1))
+
 	return Submission(
 		name=name,
 		latitude=sub.point.y,
 		longitude=sub.point.x,
 		description=sub.description,
 		is_5k=is_5k,
+		bonus_points=bonus_points,
 		**extra,  # pyright: ignore[reportArgumentType] #Pylance does not know how pydantic extra works, it seems
 	)
 
@@ -50,6 +62,8 @@ def convert_submission_tracker(
 	start_round: int = 1,
 	season: int | list[int] | None = None,
 	fivek_suffix: str | None = None,
+	*,
+	parse_bonus_points: bool = True,
 ) -> list[Round]:
 	"""Converts a submission tracker (paths to .kml file(s), or a SubmissionTracker already parsed from such) to this more consistent format.
 
@@ -66,7 +80,10 @@ def convert_submission_tracker(
 		# TODO: Any scenario where is_tie would be considered True, eventually we might need to implement that
 		# TODO: Ensure that there are no duplicate names
 		subs = [
-			_convert_submission_from_tracker(sub, fivek_suffix) for sub in tracker_round.submissions
+			_convert_submission_from_tracker(
+				sub, fivek_suffix, parse_bonus_points=parse_bonus_points
+			)
+			for sub in tracker_round.submissions
 		]
 		rounds.append(
 			Round(
