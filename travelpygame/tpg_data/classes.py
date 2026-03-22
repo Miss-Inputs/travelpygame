@@ -68,6 +68,14 @@ class RoundInfo(BaseModel, extra='allow'):
 	def target(self) -> Point:
 		return Point(self.longitude, self.latitude)
 
+	@property
+	def display_name(self) -> str:
+		name = self.name or f'Round {self.number}'
+		if self.country_code:
+			# Perhaps we might have a flag here
+			name += f' ({self.country_code})'
+		return name
+
 
 class Round(RoundInfo):
 	"""A round + its submissions, which may or may not be scored."""
