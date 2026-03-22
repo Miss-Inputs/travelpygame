@@ -1,5 +1,6 @@
+import logging
 from collections import Counter, defaultdict
-from collections.abc import Collection, Mapping
+from collections.abc import Collection, Iterable, Mapping
 from enum import IntEnum
 from operator import attrgetter
 from typing import Any
@@ -7,8 +8,10 @@ from typing import Any
 import numpy
 import pandas
 
-from .tpg_data import Round, ScoringOptions
-from .util.distance import geod_distance_and_bearing, haversine_distance
+from .tpg_data import PlayerName, Round, ScoringOptions, Submission
+from .util.distance import geod_distance_and_bearing, get_distances, haversine_distance
+
+logger = logging.getLogger(__name__)
 
 main_tpg_scoring = ScoringOptions(
 	fivek_flat_score=None,
@@ -18,6 +21,65 @@ main_tpg_scoring = ScoringOptions(
 	distance_divisor=4.003006,
 	average_distance_and_rank=False,
 )
+
+
+def _get_submission_distances_to_other(
+	sub: Submission, others: Iterable[Submission], *, use_haversine: bool = False
+):
+	"""Array of all distances from other to sub. We don't really need haversine since we are not needing to be consistent with anything but we are just checking for ties but the option is there"""
+	return get_distances(
+		(sub.latitude, sub.longitude),
+		[other.point for other in others],
+		use_haversine=use_haversine,
+	)
+
+
+def detect_likely_ties(submissions: list[Submission], threshold: float = 100.0) -> set[PlayerName]:
+	"""Returns booleans indicating if a submission is likely tied with another one, based on it being nearly in the same place as another submission. Assumes the submissions all already have distances and will probably error if not, and that the names of each submission are unique.
+
+	Returns:
+		Set of submission names that are likely ties.
+	"""
+	subs_by_name = {sub.name: sub for sub in submissions}
+	# Not sure if this is a good algorithm but if it makes sense and works (_if_ it works) then that'll do
+	# I don't have the most test cases for this…
+	sorted_subs = sorted(submissions, key=attrgetter('distance'))
+
+	tie_groups: defaultdict[PlayerName, set[PlayerName]] = defaultdict(set)
+	"""{submissions (that are the closest of a tie group) -> submissions that are close to that distance}"""
+
+	last_distance = None
+	last_sub_name = None
+	for sub in sorted_subs:
+		if sub.distance is None:
+			logger.warning(
+				'Submission %s did not have a distance, skipping any check for ties', sub.name
+			)
+			continue
+
+		if last_distance is not None and sub.distance - last_distance <= threshold:
+			assert last_sub_name is not None, 'last_sub_name is None'
+			tie_groups[last_sub_name].add(sub.name)
+		else:
+			last_distance = sub.distance
+			last_sub_name = sub.name
+
+	if not tie_groups:
+		return set()
+	# Make sure the pics are actually close to each other, and not just the same distance from the target
+	# This could be the entire function here but I didn't want to compute distances from every single submission including those that are clearly not tied
+	real_tie_groups: set[PlayerName] = set()
+	for leader, tie_group in tie_groups.items():
+		# TODO: This could probably be optimized if a tie group contains only two
+		group = {name: subs_by_name[name] for name in (leader, *tie_group)}
+		for sub_name, sub in group.items():
+			others = [s for s in group.values() if s is not sub]
+			distances = _get_submission_distances_to_other(sub, others)
+			close = distances <= threshold
+			if close.any():
+				real_tie_groups.add(sub_name)
+
+	return real_tie_groups
 
 
 def score_distances(
