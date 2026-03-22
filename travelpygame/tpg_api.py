@@ -26,6 +26,7 @@ class TPGRound(BaseModel, extra='forbid'):
 	season: int
 	game: int
 	"""Which game this round is for (1 = main TPG, etc)."""
+	closest_country: str | None
 
 
 _round_list_adapter = TypeAdapter(list[TPGRound])
