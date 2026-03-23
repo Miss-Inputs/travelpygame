@@ -63,10 +63,12 @@ async def get_main_tpg_subs_per_player(
 	return combine_player_submissions((combined,), aliases, rounding)
 
 
-async def get_morphior_subs_per_player(session: 'ClientSession | None' = None) -> PointCounters:
+async def get_morphior_subs_per_player(
+	rounding: int = 6, session: 'ClientSession | None' = None
+) -> PointCounters:
 	if session is None:
 		async with ClientSession(headers={'User-Agent': user_agent}) as sesh:
-			return await get_morphior_subs_per_player(sesh)
+			return await get_morphior_subs_per_player(rounding, sesh)
 	all_subs = await get_morphior_submissions(session)
 	# The data already has unique points with counts and such
 	players = await get_all_players(session)
@@ -74,8 +76,8 @@ async def get_morphior_subs_per_player(session: 'ClientSession | None' = None) -
 	subs: defaultdict[str, Counter[Point]] = defaultdict(Counter)
 	for sub in all_subs:
 		player = id_to_name.get(sub.discord_id, sub.discord_id)
-		point = Point(sub.lon, sub.lat)
-		subs[player][point] = sub.count
+		point = Point(round(sub.lon, rounding), round(sub.lat, rounding))
+		subs[player][point] += sub.count
 	return subs
 
 
@@ -133,7 +135,7 @@ async def load_or_fetch_per_player_submissions(
 		except FileNotFoundError:
 			pass
 
-	counts = await get_morphior_subs_per_player(session)
+	counts = await get_morphior_subs_per_player(session=session)
 	per_player = convert_point_counters(counts)
 	if per_player and path:
 		await asyncio.to_thread(save_submissions_per_user, per_player, path)
