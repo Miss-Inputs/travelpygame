@@ -1,13 +1,12 @@
 """Functions to access Morphior's site to get all.geojson, because it seemed best to put them in a different module."""
 
-from typing import TYPE_CHECKING, Annotated, Literal
+from typing import Annotated, Literal
 
+from aiohttp import ClientSession, ClientTimeout
 from pydantic import BaseModel, Field, TypeAdapter
+from tqdm.auto import tqdm
 
-from .util.web import get_bytes_streamed, get_text
-
-if TYPE_CHECKING:
-	from aiohttp import ClientSession, ClientTimeout
+from .util.web import get_bytes_streamed, get_text, user_agent
 
 
 async def get_all_players_json(
@@ -77,7 +76,27 @@ class MorphiorSubmission(BaseModel):
 
 async def get_all_submissions(
 	session: 'ClientSession | None' = None, client_timeout: 'float | ClientTimeout | None' = 60
-):
-	# This maybe wants an iterator to yield rows from ndjson instead
-	json_bytes = await get_all_submissions_json(session, client_timeout)
-	return [MorphiorSubmission.model_validate_json(line) for line in json_bytes.splitlines()]
+) -> list[MorphiorSubmission]:
+	if session is None:
+		async with ClientSession(headers={'User-Agent': user_agent}) as sesh:
+			return await get_all_submissions(sesh, client_timeout or 60)
+
+	timeout = (
+		ClientTimeout(client_timeout)
+		if isinstance(client_timeout, (float, int))
+		else client_timeout
+	)
+	url = 'https://tpg.marsmathis.com/api/submissions'
+	params = {'stream': 'true'}
+
+	submissions = []
+	async with session.get(url, params=params, timeout=timeout, raise_for_status=True) as response:
+		with tqdm(desc='Getting all submissions', unit='submission') as t:
+			while True:
+				line = await response.content.readline()
+				if not line:
+					break
+				t.update()
+				submission = MorphiorSubmission.model_validate_json(line)
+				submissions.append(submission)
+	return submissions
