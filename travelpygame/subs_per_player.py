@@ -2,32 +2,30 @@
 
 import asyncio
 import contextlib
-from collections import defaultdict
-from collections.abc import Mapping
+from collections import Counter, defaultdict
+from collections.abc import Hashable, Mapping
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 import geopandas
 import pandas
+from aiohttp import ClientSession
 from pydantic import ValidationError
+from shapely import Point
 from tqdm.auto import tqdm
 
 from travelpygame import tpg_api
-from travelpygame.util import load_points
 
-from .morphior_api import get_morphior_all_submissions
+from .morphior_api import get_all_players
+from .morphior_api import get_all_submissions as get_morphior_submissions
 from .tpg_data import (
 	PlayerName,
 	PlayerUsername,
-	Round,
 	combine_player_submissions_to_point_sets,
-	get_main_tpg_rounds_with_path,
 	load_rounds,
 )
-from .tpg_data.combine import PointCounters, combine_player_submissions, combine_point_counters
-
-if TYPE_CHECKING:
-	from aiohttp import ClientSession
+from .tpg_data.combine import PointCounters, combine_player_submissions, convert_point_counters
+from .util import load_points
+from .util.web import user_agent
 
 
 async def _get_submissions_from_tpg_api(
@@ -65,23 +63,33 @@ async def get_main_tpg_subs_per_player(
 	return combine_player_submissions((combined,), aliases, rounding)
 
 
-async def get_morphior_subs_per_player(
-	rounding: int = 6,
-	aliases: Mapping[PlayerName, PlayerUsername] | None = None,
-	session: 'ClientSession | None' = None,
+async def get_morphior_subs_per_player(session: 'ClientSession | None' = None) -> PointCounters:
+	if session is None:
+		async with ClientSession(headers={'User-Agent': user_agent}) as sesh:
+			return await get_morphior_subs_per_player(sesh)
+	all_subs = await get_morphior_submissions(session)
+	# The data already has unique points with counts and such
+	players = await get_all_players(session)
+	id_to_name = {player.discord_id: player.canonical_name for player in players}
+	subs: defaultdict[str, Counter[Point]] = defaultdict(Counter)
+	for sub in all_subs:
+		player = id_to_name.get(sub.discord_id, sub.discord_id)
+		point = Point(sub.lon, sub.lat)
+		subs[player][point] = sub.count
+	return subs
+
+
+def get_per_player_subs_from_gdf(
+	gdf: geopandas.GeoDataFrame,
+	player_col_name: str | int = 'player',
+	name_col_name: Hashable = 'name',
 ):
-	gdf = await get_morphior_all_submissions(session)
-	rows = ((row['username'], row.geometry.y, row.geometry.x) for _, row in gdf.iterrows())
-	return combine_player_submissions((rows,), aliases, rounding)
-
-
-def get_per_player_subs_from_gdf(gdf: geopandas.GeoDataFrame):
 	subs: dict[PlayerUsername, geopandas.GeoDataFrame] = {}
-	for player, group in gdf.groupby('player', sort=False):
-		name_col = group.get('name')
+	for player, group in gdf.groupby(player_col_name, sort=False):
+		name_col = group.get(name_col_name)
 		if name_col is not None and name_col.is_unique and not name_col.hasnans:
 			with contextlib.suppress(ValueError):
-				group = group.set_index('name', verify_integrity=True)
+				group = group.set_index(name_col_name, verify_integrity=True)
 		else:
 			group = group.reset_index()
 		if not isinstance(group, geopandas.GeoDataFrame):
@@ -116,45 +124,17 @@ def save_submissions_per_user(subs: Mapping[PlayerUsername, geopandas.GeoDataFra
 
 
 async def load_or_fetch_per_player_submissions(
-	path: Path | None = None,
-	main_data_path: Path | list[Round] | None = None,
-	aliases: Mapping[PlayerName, PlayerUsername] | None = None,
-	rounding: int = 6,
-	session: 'ClientSession | None' = None,
-	*,
-	load_main_data: bool = True,
-	load_morphior_data: bool = True,
+	path: Path | None = None, session: 'ClientSession | None' = None
 ) -> dict[PlayerUsername, geopandas.GeoDataFrame]:
-	"""Loads per-player submission data from a file, or fetches it if it is not there.
-
-	Arguments:
-		load_main_data: Fetch data from main TPG if we do not have it (will still load it from the path if it is there.)"""
+	"""Loads per-player submission data from a file, or fetches it if it is not there."""
 	if path:
 		try:
 			return await asyncio.to_thread(load_per_player_submissions, path)
 		except FileNotFoundError:
 			pass
-	if main_data_path:
-		# TODO: This should load a Season when we store that instead of list[Round]
-		# Well, it should also try and load all seasons of all games, but we're getting there
-		# Also have the option for it to be already loaded, I guess
-		main_data = (
-			await get_main_tpg_rounds_with_path(main_data_path, session=session)
-			if isinstance(main_data_path, Path)
-			else main_data_path
-		)
-		main_data_counts = combine_player_submissions(main_data, aliases, rounding)
-	elif load_main_data:
-		main_data_counts = await get_main_tpg_subs_per_player(rounding, aliases, session)
-	else:
-		main_data_counts = {}
 
-	if load_morphior_data:
-		morphior_counts = await get_morphior_subs_per_player(rounding, aliases, session)
-	else:
-		morphior_counts = {}
-
-	per_player = combine_point_counters((main_data_counts, morphior_counts))
+	counts = await get_morphior_subs_per_player(session)
+	per_player = convert_point_counters(counts)
 	if per_player and path:
 		await asyncio.to_thread(save_submissions_per_user, per_player, path)
 	return per_player
