@@ -74,6 +74,9 @@ class MorphiorSubmission(BaseModel):
 	occurrences: list[SubmissionOccurrence]
 
 
+_submission_list_adapter = TypeAdapter(list[MorphiorSubmission])
+
+
 async def get_all_submissions(
 	session: 'ClientSession | None' = None, client_timeout: 'float | ClientTimeout | None' = 60
 ) -> list[MorphiorSubmission]:
@@ -100,3 +103,47 @@ async def get_all_submissions(
 				submission = MorphiorSubmission.model_validate_json(line)
 				submissions.append(submission)
 	return submissions
+
+
+async def get_player_submissions_json(
+	discord_id: str,
+	session: 'ClientSession | None' = None,
+	client_timeout: 'float | ClientTimeout | None' = 60,
+):
+	# TODO: lon/lat/count max/min parameters
+	url = f'https://tpg.marsmathis.com/api/submissions/{discord_id}'
+	return await get_text(url, session, client_timeout)
+
+
+async def get_player_submissions(
+	discord_id: str,
+	session: 'ClientSession | None' = None,
+	client_timeout: 'float | ClientTimeout | None' = 60,
+):
+	json_text = await get_player_submissions_json(discord_id, session, client_timeout)
+	return _submission_list_adapter.validate_json(json_text)
+
+
+async def get_unofficial_games_json(
+	session: 'ClientSession | None' = None, client_timeout: 'float | ClientTimeout | None' = 60
+):
+	url = 'https://tpg.marsmathis.com/api/games/unofficial'
+	return await get_text(url, session, client_timeout)
+
+
+class UnofficialGame(BaseModel):
+	id: int
+	name: str
+	discord_server: str
+	"""CG, US, AU, etc"""
+	season_start: int
+
+
+_unofficial_game_adapter = TypeAdapter(list[UnofficialGame])
+
+
+async def get_unofficial_games(
+	session: 'ClientSession | None' = None, client_timeout: 'float | ClientTimeout | None' = 60
+):
+	json_text = await get_unofficial_games_json(session, client_timeout)
+	return _unofficial_game_adapter.validate_json(json_text)
