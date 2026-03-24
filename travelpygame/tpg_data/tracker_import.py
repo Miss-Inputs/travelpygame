@@ -77,7 +77,6 @@ def convert_submission_tracker(
 	rounds: list[Round] = []
 	for i, tracker_round in enumerate(tracker.rounds, start_round):
 		round_season = _find_season(season, i) if isinstance(season, list) else season
-		# TODO: Any scenario where is_tie would be considered True, eventually we might need to implement that
 		# TODO: Ensure that there are no duplicate names
 		subs = [
 			_convert_submission_from_tracker(

@@ -148,7 +148,6 @@ def score_round(
 	*,
 	use_haversine: bool = True,
 ) -> 'Round':
-	# TODO: Take into account ties (all players within a group of is_tie have their scores averaged out)
 	n = len(round_.submissions)
 	if n == 0:
 		return round_
