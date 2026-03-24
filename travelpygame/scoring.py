@@ -35,7 +35,7 @@ def _get_submission_distances_to_other(
 
 
 def detect_likely_ties(submissions: list[Submission], threshold: float = 100.0) -> set[PlayerName]:
-	"""Returns booleans indicating if a submission is likely tied with another one, based on it being nearly in the same place as another submission. Assumes the submissions all already have distances and will probably error if not, and that the names of each submission are unique.
+	"""Returns booleans indicating if a submission is likely tied with another one, based on it being nearly in the same place as another submission. Assumes the submissions at least have the distance to the target computed, and that the names of each submission are unique.
 
 	Returns:
 		Set of submission names that are likely ties.
@@ -105,6 +105,7 @@ def score_distances(
 	players_beaten_scores = 5000 * (players_beaten / (n - 1))
 
 	scores = distance_scores + players_beaten_scores
+	scores.name = 'score'
 	if options.average_distance_and_rank:
 		scores /= 2
 
@@ -124,6 +125,20 @@ def score_distances(
 
 def _ensure_float(n: Any):
 	return n if isinstance(n, float) else n.item()
+
+
+def process_ties(scores: pandas.Series, is_tie: pandas.Series):
+	"""Averages scores that are in consecutive groups of is_tie = True."""
+	if not is_tie.any():
+		return
+	# Pre-emptively sort by rank
+	ranks = scores.rank(method='first').sort_values(ascending=False).rename('rank')
+	sorted_scores = scores.loc[ranks.index]
+	sorted_is_tie = is_tie.loc[ranks.index]
+
+	group_id = sorted_is_tie.ne(sorted_is_tie.shift()).astype(int).cumsum()
+	for _, group in sorted_scores[sorted_is_tie].groupby(group_id):
+		scores.loc[group.index] = group.mean()
 
 
 def score_round(
@@ -158,6 +173,7 @@ def score_round(
 
 	is_antipode_5k = subs['is_antipode_5k'].astype('boolean').fillna(value=False)
 	scores = score_distances(subs['distance'], subs['is_5k'], is_antipode_5k, options)
+	process_ties(scores, subs['is_tie'])
 	scores += subs['bonus_points'].fillna(0.0)
 	ranks = scores.rank(ascending=False).astype(int)
 	scored_subs = [
