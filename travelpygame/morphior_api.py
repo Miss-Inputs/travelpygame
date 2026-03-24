@@ -3,18 +3,22 @@
 from typing import Annotated, Literal
 
 from aiohttp import ClientSession, ClientTimeout
-from pydantic import BaseModel, Field, TypeAdapter
+from pydantic import BaseModel, Field, HttpUrl, TypeAdapter
 from tqdm.auto import tqdm
 
 from .util.web import get_bytes_streamed, get_text, user_agent
+
+TrackerID = int
+UnofficialGameID = int
 
 
 async def get_all_players_json(
 	session: 'ClientSession | None' = None, client_timeout: 'float | ClientTimeout | None' = 60
 ):
 	"""Returns json as plain text. Separate function from get_all_players in case you want to parse it in some custom way."""
+	# Maybe that's not necessary to do that, though, and I should just make one function… hrm
 	url = 'https://tpg.marsmathis.com/api/players'
-	return await get_text(url, session, client_timeout)
+	return await get_text(url, None, session, client_timeout)
 
 
 class MorphiorPlayer(BaseModel):
@@ -55,8 +59,8 @@ class OfficialSubmissionOccurrence(BaseModel):
 
 class UnofficialSubmissionOccurrence(BaseModel):
 	type: Literal['unofficial']
-	tracker_id: int
-	unofficial_game_id: int | None
+	tracker_id: TrackerID
+	unofficial_game_id: UnofficialGameID | None
 	layer: str | None
 
 
@@ -112,7 +116,7 @@ async def get_player_submissions_json(
 ):
 	# TODO: lon/lat/count max/min parameters
 	url = f'https://tpg.marsmathis.com/api/submissions/{discord_id}'
-	return await get_text(url, session, client_timeout)
+	return await get_text(url, None, session, client_timeout)
 
 
 async def get_player_submissions(
@@ -128,11 +132,11 @@ async def get_unofficial_games_json(
 	session: 'ClientSession | None' = None, client_timeout: 'float | ClientTimeout | None' = 60
 ):
 	url = 'https://tpg.marsmathis.com/api/games/unofficial'
-	return await get_text(url, session, client_timeout)
+	return await get_text(url, None, session, client_timeout)
 
 
 class UnofficialGame(BaseModel):
-	id: int
+	id: UnofficialGameID
 	name: str
 	discord_server: str
 	"""CG, US, AU, etc"""
@@ -147,3 +151,37 @@ async def get_unofficial_games(
 ):
 	json_text = await get_unofficial_games_json(session, client_timeout)
 	return _unofficial_game_adapter.validate_json(json_text)
+
+
+class Tracker(BaseModel):
+	tracker_id: TrackerID
+	name: str
+	game_name: str
+	discord_server: str
+	season: int
+	unofficial_game_id: UnofficialGameID
+	url: HttpUrl
+
+
+_tracker_list_adapter = TypeAdapter(list[Tracker])
+
+
+async def get_unofficial_game_trackers(
+	unofficial_game_id: UnofficialGameID,
+	session: 'ClientSession | None' = None,
+	client_timeout: 'float | ClientTimeout | None' = 60,
+):
+	url = f'https://tpg.marsmathis.com/api/games/unofficial/{unofficial_game_id}/trackers'
+	json_text = await get_text(url, None, session, client_timeout)
+	return _tracker_list_adapter.validate_json(json_text)
+
+
+async def get_all_trackers(
+	discord_server: str | None,
+	session: 'ClientSession | None' = None,
+	client_timeout: 'float | ClientTimeout | None' = 60,
+):
+	url = 'https://tpg.marsmathis.com/api/trackers'
+	params = {'discord_server': discord_server} if discord_server else None
+	json_text = await get_text(url, params, session, client_timeout)
+	return _tracker_list_adapter.validate_json(json_text)

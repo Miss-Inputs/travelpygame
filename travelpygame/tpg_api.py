@@ -42,7 +42,7 @@ async def get_rounds(
 	client_timeout: ClientTimeout | float | None = 60.0,
 ) -> list[TPGRound]:
 	url = f'https://travelpicsgame.com/api/v1/rounds/{game}'
-	text = await get_text(url, session, client_timeout)
+	text = await get_text(url, None, session, client_timeout)
 	return _round_list_adapter.validate_json(text)
 
 
@@ -79,7 +79,7 @@ async def get_round_submissions(
 	client_timeout: ClientTimeout | float | None = 60.0,
 ) -> list[TPGSubmission]:
 	url = f'https://travelpicsgame.com/api/v1/submissions/game/{game}/round/{round_num}'
-	text = await get_text(url, session, client_timeout)
+	text = await get_text(url, None, session, client_timeout)
 	return _sub_list_adapter.validate_json(text)
 
 
@@ -97,7 +97,7 @@ async def get_players(
 ) -> list[TPGPlayer]:
 	"""Gets all players who have submitted for TPG."""
 	url = 'https://travelpicsgame.com/api/v1/players'
-	text = await get_text(url, session, client_timeout)
+	text = await get_text(url, None, session, client_timeout)
 	return _player_list_adapter.validate_json(text)
 
 
@@ -124,7 +124,7 @@ async def get_games(
 ) -> list[TPGGame]:
 	"""Gets all games on the main site."""
 	url = 'https://travelpicsgame.com/api/v1/games'
-	text = await get_text(url, session, client_timeout)
+	text = await get_text(url, None, session, client_timeout)
 	return _games_list_adapter.validate_json(text)
 
 

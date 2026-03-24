@@ -8,18 +8,19 @@ user_agent = 'https://github.com/Miss-Inputs/travelpygame'
 
 async def get_text(
 	url: str,
+	params: dict[str, Any] | None = None,
 	session: ClientSession | None = None,
 	client_timeout: ClientTimeout | float | None = 60.0,
 ) -> str:
 	if session is None:
 		async with ClientSession(headers={'User-Agent': user_agent}) as sesh:
-			return await get_text(url, sesh, client_timeout)
+			return await get_text(url, params, sesh, client_timeout)
 	timeout = (
 		ClientTimeout(client_timeout)
 		if isinstance(client_timeout, (float, int))
 		else client_timeout
 	)
-	async with session.get(url, timeout=timeout) as response:
+	async with session.get(url, params=params, timeout=timeout) as response:
 		response.raise_for_status()
 		return await response.text()
 
@@ -51,7 +52,7 @@ async def get_bytes_tqdm(
 
 async def get_bytes_streamed(
 	url: str,
-	params: dict[str, Any],
+	params: dict[str, Any] | None = None,
 	session: ClientSession | None = None,
 	client_timeout: ClientTimeout | float | None = 60.0,
 ) -> bytes:
