@@ -1,9 +1,9 @@
 import logging
+from collections import Counter
 from collections.abc import Hashable, Iterable
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
-if TYPE_CHECKING:
-	import pandas
+import pandas
 
 logger = logging.getLogger(__name__)
 
@@ -150,3 +150,11 @@ def detect_cat_cols(df: 'pandas.DataFrame', frac_threshold: int = 2):
 	threshold = df.index.size // frac_threshold
 	maybe_cats = nunique[(nunique > 1) & (nunique < threshold)]
 	return [*cats, *maybe_cats.index]
+
+
+def summarize_counter[T](counter: Counter[T]):
+	counts = pandas.Series(counter)
+	percents = counts / counter.total()
+	percents_formatted = percents.map('{:%}'.format)
+	df = pandas.DataFrame({'count': counts, 'percent': percents_formatted})
+	return df.sort_values('count', ascending=False)
