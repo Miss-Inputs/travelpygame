@@ -146,7 +146,10 @@ async def get_address_nominatim(
 		# Respect the usage policy!!! This is the wrong way to go about this but it's more important that we follow the rules before I figure that one out
 		await asyncio.sleep(1)
 
-	j = pydantic_core.from_json(text)
+	try:
+		j = pydantic_core.from_json(text)
+	except ValueError as ve:
+		raise GeocodeError(text) from ve
 	error = j.get('error')
 	if error == 'Unable to geocode':
 		return None
@@ -189,7 +192,10 @@ async def get_address_components_nominatim(
 		# Respect the usage policy!!! This is the wrong way to go about this but it's more important that we follow the rules before I figure that one out
 		await asyncio.sleep(1)
 
-	j = pydantic_core.from_json(text)
+	try:
+		j = pydantic_core.from_json(text)
+	except ValueError as ve:
+		raise GeocodeError(text) from ve
 	error = j.get('error')
 	if error == 'Unable to geocode':
 		return None
