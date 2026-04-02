@@ -59,7 +59,6 @@ class NominatimGeocodingProperties(BaseModel, extra='allow'):
 	osm_id: int
 	osm_key: str
 	osm_value: str
-	osm_type: str
 	accuracy: int
 	label: str
 	"""Fully formatted address."""
