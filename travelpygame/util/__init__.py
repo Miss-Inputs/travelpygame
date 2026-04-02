@@ -70,6 +70,7 @@ from .pandas_utils import (
 	find_first_matching_column,
 	first_unique_column_label,
 	maybe_set_index_name_col,
+	summarize_counter,
 	try_auto_set_index,
 )
 from .point_construction import (
@@ -141,6 +142,7 @@ __all__ = [
 	'read_dataframe_pickle_async',
 	'read_geodataframe',
 	'read_geodataframe_async',
+	'summarize_counter',
 	'to_graph',
 	'try_auto_set_index',
 	'wgs84_geod',
