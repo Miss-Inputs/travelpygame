@@ -226,11 +226,8 @@ def get_player_summary(new_rounds: Iterable[Round] | Simulation) -> pandas.DataF
 		row['most_used'], row['count'] = max(pic_counter.items(), key=itemgetter(1))
 
 		rows.append(row)
-	return (
-		pandas.DataFrame(rows)
-		.set_index('name', verify_integrity=True)
-		.sort_values('total', ascending=False)
-	)
+	summary = pandas.DataFrame(rows)
+	return summary.set_index('name').sort_values('total', ascending=False)
 
 
 def get_player_submissions(

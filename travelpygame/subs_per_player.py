@@ -1,7 +1,6 @@
 """Organizes TPG submissions into dicts per player."""
 
 import asyncio
-import contextlib
 from collections import Counter, defaultdict
 from collections.abc import Hashable, Mapping
 from pathlib import Path
@@ -90,8 +89,7 @@ def get_per_player_subs_from_gdf(
 	for player, group in gdf.groupby(player_col_name, sort=False):
 		name_col = group.get(name_col_name)
 		if name_col is not None and name_col.is_unique and not name_col.hasnans:
-			with contextlib.suppress(ValueError):
-				group = group.set_index(name_col_name, verify_integrity=True)
+			group = group.set_index(name_col_name)
 		else:
 			group = group.reset_index()
 		if not isinstance(group, geopandas.GeoDataFrame):
