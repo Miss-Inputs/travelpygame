@@ -100,8 +100,8 @@ def get_antipode(lat: float, lng: float) -> tuple[float, float]:
 def get_geometry_antipode[T: BaseGeometry](g: T) -> T:
 	if isinstance(g, shapely.Point):
 		antilat, antilng = get_antipode(g.y, g.x)
-		return shapely.Point(antilng, antilat)
-	return transform(get_antipodes, g)  # pyright: ignore[reportArgumentType] #The type hint is wrong, transform works with arrays just fine
+		return type(g)(antilng, antilat)
+	return transform(get_antipodes, g)  # ty: ignore[invalid-argument-type] #The type hint is wrong, transform works with arrays just fine
 
 
 def get_antipodes(lats: 'numpy.ndarray', lngs: 'numpy.ndarray'):

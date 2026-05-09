@@ -16,8 +16,8 @@ from tqdm.auto import tqdm
 
 from .best_pics import get_best_pic
 from .point_set import PointSet
-from .scoring import ScoringOptions, main_tpg_scoring, score_round
-from .tpg_data import Round, Submission, combine_player_submissions_to_point_sets
+from .scoring import main_tpg_scoring, score_round
+from .tpg_data import Round, ScoringOptions, Submission, combine_player_submissions_to_point_sets
 from .util.other import format_point, format_xy
 
 logger = logging.getLogger(__name__)

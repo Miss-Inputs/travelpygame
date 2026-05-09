@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 import geopandas
 import pandas
 from geopandas import GeoDataFrame, GeoSeries
+from numpy import ndarray
 from shapely import Point
 from tqdm.auto import tqdm
 
@@ -21,14 +22,12 @@ from .util.io_utils import load_points
 from .util.kml import parse_submission_kml
 
 if TYPE_CHECKING:
-	import numpy
-
 	from .point_set import PointSet
 
 logger = logging.getLogger(__name__)
 
 
-def _to_items(points: 'Collection[Point] | numpy.ndarray | GeoSeries'):
+def _to_items(points: 'Collection[Point] | ndarray | GeoSeries'):
 	if isinstance(points, GeoSeries):
 		total = points.size
 		items = points.items()
@@ -38,7 +37,7 @@ def _to_items(points: 'Collection[Point] | numpy.ndarray | GeoSeries'):
 	return total, items
 
 
-def _load_points_or_rounds_single(path: Path):
+def _load_points_or_rounds_single(path: Path) -> GeoDataFrame:
 	ext = path.suffix[1:].lower()
 	if ext in {'kml', 'kmz'}:
 		# It is assumed to be something exported from the submission tracker
@@ -112,7 +111,7 @@ def find_new_pic_diffs(
 	"""Finds the differences in the best distances from a set of points to targets, and a new point to each target, and whether that is better."""
 	if isinstance(targets, GeoDataFrame):
 		targets = targets.geometry
-	if isinstance(targets, Collection) and not isinstance(targets, (Sequence, GeoSeries)):
+	if not isinstance(targets, (Sequence, GeoSeries, ndarray)):
 		targets = list(targets)
 
 	total, items = _to_items(targets)

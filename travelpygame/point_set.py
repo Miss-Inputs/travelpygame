@@ -30,9 +30,9 @@ class PointSet:
 
 	def __init__(self, gdf: GeoDataFrame, name: str, projected_crs: Any | None = None):
 		self.gdf: GeoDataFrame = gdf
-		self.name = name
-		self.points = gdf.geometry
-		self.projected_crs_arg = projected_crs
+		self.name: str = name
+		self.points: GeoSeries = gdf.geometry
+		self.projected_crs_arg: Any = projected_crs
 		"""Argument which may be a CRS or a string etc and has not been validated yet"""
 
 	@property

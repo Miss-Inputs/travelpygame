@@ -83,7 +83,7 @@ def detect_likely_ties(submissions: list[Submission], threshold: float = 100.0) 
 
 
 def score_distances(
-	distances: pandas.Series,
+	distances: pandas.Series[float],
 	is_5k: pandas.Series,
 	is_antipode_5k: pandas.Series | None,
 	options: ScoringOptions,
