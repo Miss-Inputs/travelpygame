@@ -6,8 +6,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-import geopandas
 from aiohttp import ClientSession
+from geopandas import GeoDataFrame
 from shapely import Point
 from tqdm.auto import tqdm
 
@@ -173,10 +173,10 @@ async def get_submission_occurrences(
 
 async def get_submission_summary(
 	session: ClientSession | None = None, rounding: int | None = 6, *, forbid_extra: bool = False
-):
+) -> GeoDataFrame:
 	"""Gets all points that have been submitted somewhere at some point, and the player name and count of occurrences, etc."""
 	sub_occurrences = await get_submission_occurrences(session, rounding, forbid_extra=forbid_extra)
-	gdf = geopandas.GeoDataFrame(sub_occurrences, geometry='point', crs='wgs84')
+	gdf = GeoDataFrame(sub_occurrences, geometry='point', crs='wgs84')
 
 	rows = []
 	for player, player_group in gdf.groupby('player_username', sort=False):
@@ -192,7 +192,7 @@ async def get_submission_summary(
 			}
 			rows.append(row)
 
-	return geopandas.GeoDataFrame(rows, crs='wgs84')
+	return GeoDataFrame(rows, crs='wgs84')
 
 
 # TODO: We may end up wanting a get_submission_detailed_summary that aggregates things like the list of spinoffs a point has been submitted to, the first main round, etc, maybe little a reverse geocode as a treat, or to put some of those details in the current summary
@@ -205,7 +205,7 @@ async def load_or_fetch_submission_summary(
 	*,
 	forbid_extra: bool = False,
 	error_if_not_found: bool = False,
-):
+) -> GeoDataFrame:
 	"""Loads the previously saved output from `get_submission_summary` if the path is provided and exists, or fetches it if not."""
 	if path:
 		try:
@@ -220,17 +220,13 @@ async def load_or_fetch_submission_summary(
 	return summary
 
 
-def get_all_point_sets(
-	submission_summary: geopandas.GeoDataFrame, player_col_name: str | int = 'username'
-):
+def get_all_point_sets(submission_summary: GeoDataFrame, player_col_name: str | int = 'username'):
 	point_sets: list[PointSet] = []
 	for name, group in submission_summary.groupby(player_col_name):
 		# TODO: Option to set an index col (for the name/description of each point), but we don't have that info yet, it would just be if a custom submission_summary is provided
 		name = str(name)
 		data = group.drop(columns=[player_col_name, 'player_name', 'player_id'], errors='ignore')
 		data = data.rename_axis(index=name)
-		assert isinstance(data, geopandas.GeoDataFrame), (
-			f'data was {type(data)}, expected GeoDataFrame'
-		)
+		assert isinstance(data, GeoDataFrame), f'data was {type(data)}, expected GeoDataFrame'
 		point_sets.append(PointSet(data, name))
 	return point_sets
