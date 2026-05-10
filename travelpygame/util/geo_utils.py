@@ -323,7 +323,7 @@ def _geod_buffer_as_arc_poly(lat: float, lng: float, distance: float, quad_segs:
 	azimuths = numpy.linspace(start, end, quad_segs)
 
 	lngs, lats, _ = wgs84_geod.fwd(
-		numpy.repeat(lng, quad_segs),
+		numpy.repeat(lng, repeats=quad_segs),
 		numpy.repeat(lat, quad_segs),
 		azimuths,
 		numpy.repeat(distance, quad_segs),

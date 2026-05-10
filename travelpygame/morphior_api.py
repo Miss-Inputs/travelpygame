@@ -1,5 +1,6 @@
 """Functions to access Morphior's site to get all.geojson, because it seemed best to put them in a different module."""
 
+from collections.abc import AsyncIterator
 from typing import Annotated, Literal
 
 from aiohttp import ClientSession, ClientTimeout
@@ -117,6 +118,30 @@ async def get_all_submissions(
 				)
 				submissions.append(submission)
 	return submissions
+
+
+async def iter_all_submissions(
+	session: 'ClientSession',
+	client_timeout: 'float | ClientTimeout | None' = 60,
+	*,
+	forbid_extra: bool = False,
+) -> AsyncIterator[MorphiorSubmission]:
+	timeout = (
+		ClientTimeout(client_timeout)
+		if isinstance(client_timeout, (float, int))
+		else client_timeout
+	)
+	url = 'https://tpg.marsmathis.com/api/submissions'
+	params = {'stream': 'true'}
+
+	async with session.get(url, params=params, timeout=timeout, raise_for_status=True) as response:
+		while True:
+			line = await response.content.readline()
+			if not line:
+				break
+			yield MorphiorSubmission.model_validate_json(
+				line, extra='forbid' if forbid_extra else 'allow'
+			)
 
 
 async def get_player_submissions_json(
