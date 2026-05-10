@@ -1,6 +1,8 @@
 """Tools for measuring distance and such."""
 
-from collections.abc import Collection, Sequence
+from collections import defaultdict
+from collections.abc import Collection, Hashable, Sequence
+from itertools import combinations
 from operator import itemgetter
 from typing import overload
 
@@ -108,8 +110,8 @@ def haversine_distance(
 	Arguments:
 		lat1: ndarray of floats
 		lng1: ndarray of floats
-		lat1: ndarray of floats
-		lng1: ndarray of floats
+		lat2: ndarray of floats
+		lng2: ndarray of floats
 		radians: If set to true, treats the lat/long arguments as being in radians, otherwise they are treated as degrees (as normal people would use for coordinates)
 
 	Returns:
@@ -253,3 +255,46 @@ def get_closest_points(
 	distances = dist_func(target_lat, target_lng, lats, lngs)
 	shortest = distances.min().item()
 	return [point for i, point in enumerate(points) if distances[i] == shortest], shortest
+
+
+def self_cartesian_product_distances(gs: GeoSeries, *, use_haversine: bool = False):
+	"""Distances from every point in `gs` to every other point. Tries to be as efficient as possible. Probably isn't.
+
+	Returns:
+		dict of dicts, with keys = `gs` index."""
+	coords = shapely.get_coordinates(gs)
+	distances: defaultdict[Hashable, dict[Hashable, float]] = defaultdict(dict)
+
+	from_indexes, to_indexes = zip(*combinations(range(gs.index.size), 2), strict=True)
+	lats = coords[from_indexes, 1]
+	lngs = coords[from_indexes, 0]
+	lats2 = coords[to_indexes, 1]
+	lngs2 = coords[to_indexes, 0]
+
+	dist_func = haversine_distance if use_haversine else geod_distances
+	half_distances = dist_func(lats, lngs, lats2, lngs2)
+	for i, distance in enumerate(half_distances):
+		from_i = gs.index[from_indexes[i]]
+		to_i = gs.index[to_indexes[i]]
+		distances[from_i][to_i] = distance
+		distances[to_i][from_i] = distance
+	return distances
+
+
+def cartesian_product_distances(
+	gs_from: GeoSeries, gs_to: GeoSeries, *, use_haversine: bool = False
+):
+	"""Distances from every point in `gs_from` to every point in `gs_to`. Tries to be as efficient as possible. Probably isn't."""
+	coords_from = shapely.get_coordinates(gs_from)
+	coords_to = shapely.get_coordinates(gs_to)
+	n_from = gs_from.size
+	n_to = gs_to.size
+
+	lngs, lats = numpy.repeat(coords_from, n_to, axis=0).T
+	lngs2, lats2 = numpy.tile(coords_to, (n_from, 1)).T
+
+	dist_func = haversine_distance if use_haversine else geod_distances
+	distances = dist_func(lats, lngs, lats2, lngs2)
+	return pandas.DataFrame(
+		distances.reshape(n_from, n_to), index=gs_from.index, columns=gs_to.index
+	)
