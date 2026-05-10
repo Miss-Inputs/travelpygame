@@ -177,8 +177,8 @@ class Tracker(BaseModel):
 	name: str
 	game_name: str
 	discord_server: str
-	season: int
-	unofficial_game_id: UnofficialGameID
+	season: str
+	unofficial_game_id: UnofficialGameID | None
 	url: HttpUrl
 
 
@@ -189,10 +189,14 @@ async def get_unofficial_game_trackers(
 	unofficial_game_id: UnofficialGameID,
 	session: 'ClientSession | None' = None,
 	client_timeout: 'float | ClientTimeout | None' = 60,
+	*,
+	forbid_extra: bool = False,
 ):
 	url = f'https://tpg.marsmathis.com/api/games/unofficial/{unofficial_game_id}/trackers'
 	json_text = await get_text(url, None, session, client_timeout)
-	return _tracker_list_adapter.validate_json(json_text)
+	return _tracker_list_adapter.validate_json(
+		json_text, extra='forbid' if forbid_extra else 'allow'
+	)
 
 
 async def get_all_trackers(

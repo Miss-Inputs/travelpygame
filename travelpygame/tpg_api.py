@@ -121,6 +121,11 @@ class TPGGame(BaseModel):
 	"""Unsure what this is / if it is used yet"""
 	join_link: str
 	leaderboard_link: str
+	adm_division_name: str | None
+	"""e.g. "State" """
+	ping_channel: str | None
+	"""Discord channel ID seemingly"""
+	pings: bool
 
 
 _games_list_adapter = TypeAdapter(list[TPGGame])
