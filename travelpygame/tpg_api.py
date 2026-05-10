@@ -11,7 +11,7 @@ PlayerID = str
 """Type hint for a Discord ID, used in the travelpicsgame.com API. This is a number, but it's an opaque ID so there's no real reason to get pydantic to convert it."""
 
 
-class TPGRound(BaseModel, extra='forbid'):
+class TPGRound(BaseModel):
 	number: int
 	"""Round number, starting with 1 and incrementing constantly."""
 	latitude: float
@@ -40,10 +40,12 @@ async def get_rounds(
 	game: int = 1,
 	session: ClientSession | None = None,
 	client_timeout: ClientTimeout | float | None = 60.0,
+	*,
+	forbid_extra: bool = False,
 ) -> list[TPGRound]:
 	url = f'https://travelpicsgame.com/api/v1/rounds/{game}'
 	text = await get_text(url, None, session, client_timeout)
-	return _round_list_adapter.validate_json(text)
+	return _round_list_adapter.validate_json(text, extra='forbid' if forbid_extra else 'allow')
 
 
 class TPGSubmission(BaseModel):
@@ -77,10 +79,12 @@ async def get_round_submissions(
 	game: int = 1,
 	session: ClientSession | None = None,
 	client_timeout: ClientTimeout | float | None = 60.0,
+	*,
+	forbid_extra: bool = False,
 ) -> list[TPGSubmission]:
 	url = f'https://travelpicsgame.com/api/v1/submissions/game/{game}/round/{round_num}'
 	text = await get_text(url, None, session, client_timeout)
-	return _sub_list_adapter.validate_json(text)
+	return _sub_list_adapter.validate_json(text, extra='forbid' if forbid_extra else 'allow')
 
 
 class TPGPlayer(BaseModel):
@@ -93,15 +97,18 @@ _player_list_adapter = TypeAdapter(list[TPGPlayer])
 
 
 async def get_players(
-	session: ClientSession | None = None, client_timeout: ClientTimeout | float | None = 60.0
+	session: ClientSession | None = None,
+	client_timeout: ClientTimeout | float | None = 60.0,
+	*,
+	forbid_extra: bool = False,
 ) -> list[TPGPlayer]:
 	"""Gets all players who have submitted for TPG."""
 	url = 'https://travelpicsgame.com/api/v1/players'
 	text = await get_text(url, None, session, client_timeout)
-	return _player_list_adapter.validate_json(text)
+	return _player_list_adapter.validate_json(text, extra='forbid' if forbid_extra else 'allow')
 
 
-class TPGGame(BaseModel, extra='forbid'):
+class TPGGame(BaseModel):
 	id: int
 	name: str
 	server_id: str
@@ -120,12 +127,15 @@ _games_list_adapter = TypeAdapter(list[TPGGame])
 
 
 async def get_games(
-	session: ClientSession | None = None, client_timeout: ClientTimeout | float | None = 60.0
+	session: ClientSession | None = None,
+	client_timeout: ClientTimeout | float | None = 60.0,
+	*,
+	forbid_extra: bool = False,
 ) -> list[TPGGame]:
 	"""Gets all games on the main site."""
 	url = 'https://travelpicsgame.com/api/v1/games'
 	text = await get_text(url, None, session, client_timeout)
-	return _games_list_adapter.validate_json(text)
+	return _games_list_adapter.validate_json(text, extra='forbid' if forbid_extra else 'allow')
 
 
 # /api/v1/submissions/user/{discord_id} and /api/v1/submissions/user/{discord_id}/game/{game_id} could be something if getting an individual player, otherwise, it would probably be slower and requestier to call that for every player vs. just getting all rounds

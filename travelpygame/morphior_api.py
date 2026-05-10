@@ -32,10 +32,15 @@ _player_list_adapter = TypeAdapter(list[MorphiorPlayer])
 
 
 async def get_all_players(
-	session: 'ClientSession | None' = None, client_timeout: 'float | ClientTimeout | None' = 60
-):
+	session: 'ClientSession | None' = None,
+	client_timeout: 'float | ClientTimeout | None' = 60,
+	*,
+	forbid_extra: bool = False,
+) -> list[MorphiorPlayer]:
 	json_text = await get_all_players_json(session, client_timeout)
-	return _player_list_adapter.validate_json(json_text)
+	return _player_list_adapter.validate_json(
+		json_text, extra='forbid' if forbid_extra else 'allow'
+	)
 
 
 async def get_all_submissions_json(
@@ -82,11 +87,14 @@ _submission_list_adapter = TypeAdapter(list[MorphiorSubmission])
 
 
 async def get_all_submissions(
-	session: 'ClientSession | None' = None, client_timeout: 'float | ClientTimeout | None' = 60
+	session: 'ClientSession | None' = None,
+	client_timeout: 'float | ClientTimeout | None' = 60,
+	*,
+	forbid_extra: bool = False,
 ) -> list[MorphiorSubmission]:
 	if session is None:
 		async with ClientSession(headers={'User-Agent': user_agent}) as sesh:
-			return await get_all_submissions(sesh, client_timeout or 60)
+			return await get_all_submissions(sesh, client_timeout or 60, forbid_extra=forbid_extra)
 
 	timeout = (
 		ClientTimeout(client_timeout)
@@ -104,7 +112,9 @@ async def get_all_submissions(
 				if not line:
 					break
 				t.update()
-				submission = MorphiorSubmission.model_validate_json(line)
+				submission = MorphiorSubmission.model_validate_json(
+					line, extra='forbid' if forbid_extra else 'allow'
+				)
 				submissions.append(submission)
 	return submissions
 
@@ -123,9 +133,13 @@ async def get_player_submissions(
 	discord_id: str,
 	session: 'ClientSession | None' = None,
 	client_timeout: 'float | ClientTimeout | None' = 60,
+	*,
+	forbid_extra: bool = False,
 ):
 	json_text = await get_player_submissions_json(discord_id, session, client_timeout)
-	return _submission_list_adapter.validate_json(json_text)
+	return _submission_list_adapter.validate_json(
+		json_text, extra='forbid' if forbid_extra else 'allow'
+	)
 
 
 async def get_unofficial_games_json(
@@ -147,10 +161,15 @@ _unofficial_game_adapter = TypeAdapter(list[UnofficialGame])
 
 
 async def get_unofficial_games(
-	session: 'ClientSession | None' = None, client_timeout: 'float | ClientTimeout | None' = 60
-):
+	session: 'ClientSession | None' = None,
+	client_timeout: 'float | ClientTimeout | None' = 60,
+	*,
+	forbid_extra: bool = False,
+) -> list[UnofficialGame]:
 	json_text = await get_unofficial_games_json(session, client_timeout)
-	return _unofficial_game_adapter.validate_json(json_text)
+	return _unofficial_game_adapter.validate_json(
+		json_text, extra='forbid' if forbid_extra else 'allow'
+	)
 
 
 class Tracker(BaseModel):
@@ -180,8 +199,12 @@ async def get_all_trackers(
 	discord_server: str | None,
 	session: 'ClientSession | None' = None,
 	client_timeout: 'float | ClientTimeout | None' = 60,
-):
+	*,
+	forbid_extra: bool = False,
+) -> list[Tracker]:
 	url = 'https://tpg.marsmathis.com/api/trackers'
 	params = {'discord_server': discord_server} if discord_server else None
 	json_text = await get_text(url, params, session, client_timeout)
-	return _tracker_list_adapter.validate_json(json_text)
+	return _tracker_list_adapter.validate_json(
+		json_text, extra='forbid' if forbid_extra else 'allow'
+	)
