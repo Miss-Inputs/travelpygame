@@ -7,8 +7,14 @@ from pydantic import BaseModel, Field, TypeAdapter
 
 from .util.web import get_text, user_agent
 
-PlayerID = str
-"""Type hint for a Discord ID, used in the travelpicsgame.com API. This is a number, but it's an opaque ID so there's no real reason to get pydantic to convert it."""
+type PlayerID = str
+"""Type hint for a Discord user ID, used in the travelpicsgame.com API. This is a number, but it's an opaque ID so there's no real reason to get pydantic to convert it."""
+type GameID = int
+"""Type hint for a game ID used in the travelpicsgame.com API."""
+type ServerID = str
+"""Type hint for a Discord server (guild) ID, used in the travelpicsgame.com API, though not necessarily important to us."""
+type ChannelID = str
+"""Type hint for a Discord channel ID, used in the travelpicsgame.com API, though not necessarily important to us."""
 
 
 class TPGRound(BaseModel):
@@ -24,9 +30,10 @@ class TPGRound(BaseModel):
 	start_timestamp: datetime | None
 	end_timestamp: datetime | None
 	season: int
-	game: int
+	game: GameID
 	"""Which game this round is for (1 = main TPG, etc)."""
 	closest_country: str | None
+	"""For water rounds where `country` is None, two letter uppercase ISO 3166-1 code for the closest land to the round location."""
 
 
 _round_list_adapter = TypeAdapter(list[TPGRound])
@@ -37,7 +44,7 @@ def get_session():
 
 
 async def get_rounds(
-	game: int = 1,
+	game: GameID = 1,
 	session: ClientSession | None = None,
 	client_timeout: ClientTimeout | float | None = 60.0,
 	*,
@@ -67,7 +74,7 @@ class TPGSubmission(BaseModel):
 	"""Player who submitted the picture."""
 	is_tie: bool
 	"""True if this submission ties with another one in the round."""
-	game: int
+	game: GameID
 	"""Game ID that this was a part of."""
 
 
@@ -76,7 +83,7 @@ _sub_list_adapter = TypeAdapter(list[TPGSubmission])
 
 async def get_round_submissions(
 	round_num: int,
-	game: int = 1,
+	game: GameID = 1,
 	session: ClientSession | None = None,
 	client_timeout: ClientTimeout | float | None = 60.0,
 	*,
@@ -88,9 +95,11 @@ async def get_round_submissions(
 
 
 class TPGPlayer(BaseModel):
-	discord_id: str
+	discord_id: PlayerID
 	name: str
+	"""Player display name"""
 	username: str | None
+	"""Player username (might be None if they have deleted their account etc)"""
 
 
 _player_list_adapter = TypeAdapter(list[TPGPlayer])
@@ -109,10 +118,11 @@ async def get_players(
 
 
 class TPGGame(BaseModel):
-	id: int
+	id: GameID
 	name: str
-	server_id: str
-	submissions_channel: str
+	"""Human readable name."""
+	server_id: ServerID
+	submissions_channel: ChannelID
 	scoring_function: None
 	"""Unsure what this is / if it is used yet"""
 	acceptance_text: None
@@ -120,11 +130,13 @@ class TPGGame(BaseModel):
 	rejection_text: None
 	"""Unsure what this is / if it is used yet"""
 	join_link: str
+	"""Discord invite link to join the server to play the game. We don't use pydantic to validate this is a URL because it's not important to us."""
 	leaderboard_link: str
+	"""Google Docs link to view the leaderboard spreadsheet. We don't use pydantic to validate this is a URL because it's not important to us."""
 	adm_division_name: str | None
-	"""e.g. "State" """
-	ping_channel: str | None
-	"""Discord channel ID seemingly"""
+	"""Unsure what this is used for, seems to just be "State" for US TPG for now."""
+	ping_channel: ChannelID | None
+	"""Seems to be where the TPG bot pings you for submission reminders (e.g. #tpg-discussion for World TPG)."""
 	pings: bool
 
 
