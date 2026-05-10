@@ -11,8 +11,6 @@ from aiohttp import ClientSession
 from shapely import Point
 from tqdm.auto import tqdm
 
-from travelpygame import load_points_async
-
 from .morphior_api import (
 	OfficialSubmissionOccurrence,
 	TrackerID,
@@ -24,7 +22,7 @@ from .morphior_api import (
 )
 from .point_set import PointSet
 from .tpg_api import GameID, PlayerID, get_games
-from .util import output_geodataframe
+from .util import load_points_async, output_geodataframe
 from .util.web import user_agent
 
 if TYPE_CHECKING:
@@ -101,7 +99,7 @@ async def get_submission_occurrences(
 	"""Returns all occurrences of all submissions.
 	Arguments:
 		session: aiohttp session, creates a new one if None.
-		rounding: Round coordinates to this amount of decimal places (or leave the coordinates exactly as is if None) for the `rounded` field, as the submissions data may have duplicate submissions that are counted as separate because they differ in precision. Note that the default is 6 digits as 1-e7 decimal degrees is around 1 or two centimetres (depending on the axis etc) and so is unlikely to matter for this use case, and 
+		rounding: Round coordinates to this amount of decimal places (or leave the coordinates exactly as is if None) for the `rounded` field, as the submissions data may have duplicate submissions that are counted as separate because they differ in precision. Note that the default is 6 digits as 1-e7 decimal degrees is around 1 or two centimetres (depending on the axis etc) and so is unlikely to matter for this use case, and
 
 	Returns:
 		List of SubmissionInfo
