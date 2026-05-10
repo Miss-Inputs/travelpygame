@@ -88,7 +88,7 @@ async def get_game_names(
 		name = tracker.game_name
 		if name in tracker_names.values():
 			name = f'{name} ({tracker.discord_server})'
-		tracker_names[tracker.id] = name
+		tracker_names[tracker.tracker_id] = name
 
 	return official_names, spinoff_names, tracker_names
 
@@ -118,7 +118,7 @@ async def get_submission_occurrences(
 	with tqdm(desc='Getting all submissions', unit='submission') as t:
 		async for sub in iter_all_submissions(session, forbid_extra=forbid_extra):
 			t.update()
-			player = players_by_id.get(sub.player)
+			player = players_by_id.get(sub.discord_id)
 			if not player:
 				logger.warning(
 					'Player %s did not exist, which is strange, the submission at %s, %s will be ignored',
@@ -188,7 +188,7 @@ async def get_submission_summary(
 				'player_name': first['player_name'],
 				'player_id': first['player_id'],
 				'count': group.index.size,
-				'geometry': first.geometry,
+				'geometry': first['point'],
 			}
 			rows.append(row)
 
@@ -217,7 +217,7 @@ async def load_or_fetch_submission_summary(
 	summary = await get_submission_summary(session, rounding, forbid_extra=forbid_extra)
 	if path:
 		await asyncio.to_thread(output_geodataframe, summary, path)
-	return path
+	return summary
 
 
 def get_all_point_sets(
