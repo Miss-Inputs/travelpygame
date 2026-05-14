@@ -111,11 +111,12 @@ def parse_submission_kml(
 	path: Path | ElementTree.ElementTree | Sequence[Path], *, include_antipode: bool = False
 ):
 	"""Parses .kml file(s) from submission trackers. path can be multiple paths, in the likely event there are more than 10 rounds so a single one cannot store them all due to Google My Maps limits.
-	
+
 	Arguments:
 		path: Path to file(s), or existing parsed XML.
 		include_antipode: If true, the second item in every layer is the antipode, and not a submission."""
-	if isinstance(path, Sequence):
+	if not isinstance(path, Path) and not isinstance(path, ElementTree.ElementTree):
+		# We check that way around because right now the type gets narrowed better than "if isinstance(path, Sequence)", which isn't the greatest reason, but whaddya gonna do
 		rounds = list(
 			chain.from_iterable(
 				_parse_kml_rounds(p, include_antipode=include_antipode) for p in path

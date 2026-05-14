@@ -5,7 +5,7 @@ import numpy
 import shapely
 from tqdm.auto import tqdm
 
-from .util.geo_utils import contains_any, contains_any_array
+from .util.geom_utils import contains_any, contains_any_array
 
 RandomSeed = (
 	numpy.random.Generator | numpy.random.BitGenerator | numpy.random.SeedSequence | int | None
@@ -23,6 +23,7 @@ def random_point_in_bbox(
 	y = random.uniform(min_y, max_y)
 	return shapely.Point(x, y)
 
+
 def random_points_in_bbox(
 	n: int, min_x: float, min_y: float, max_x: float, max_y: float, random: RandomSeed = None
 ):
@@ -34,6 +35,7 @@ def random_points_in_bbox(
 	points = shapely.points(x, y)
 	assert not isinstance(points, shapely.Point)
 	return points
+
 
 def random_point_in_poly(
 	poly: shapely.Polygon | shapely.MultiPolygon | geopandas.GeoSeries | geopandas.GeoDataFrame,
@@ -93,14 +95,14 @@ def random_points_in_poly(
 	if not isinstance(random, numpy.random.Generator):
 		random = numpy.random.default_rng(random)
 	t = tqdm(**tqdm_kwargs, total=n) if use_tqdm else nullcontext()
-	
+
 	out: list[shapely.Point] = []
 	with t:
 		while len(out) < n:
 			points = random_points_in_bbox(n - len(out), min_x, min_y, max_x, max_y, random)
 			contains = contains_any_array(poly, points)
 			contained_points = points[contains].tolist()
-			contained_points = contained_points[:n - len(out)]
+			contained_points = contained_points[: n - len(out)]
 			if isinstance(t, tqdm):
 				t.update(len(contained_points))
 			out += contained_points

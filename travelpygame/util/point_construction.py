@@ -9,14 +9,9 @@ import pandas
 import shapely
 import shapely.ops
 
+from .crs import get_metric_crs, get_transform_methods
 from .distance import geod_distance_and_bearing
-from .geo_utils import (
-	circular_mean_xy,
-	fix_x_coord,
-	fix_y_coord,
-	get_metric_crs,
-	get_transform_methods,
-)
+from .world_geo import circular_mean_xy, fix_x_coord, fix_y_coord
 
 if TYPE_CHECKING:
 	from shapely.geometry.base import BaseGeometry

@@ -147,20 +147,23 @@ def get_distances(
 	*,
 	use_haversine: bool = False,
 ):
-	"""Finds the distances from all points in `points` to `target_point`, in the original order of points. By default, uses geodetic distance. If `target_point` is a tuple, it should be lat, lng."""
+	"""Finds the distances from all points in `points` to `target_point`, in the original order of points. By default, uses geodetic distance. If `target_point` is a tuple, it should be lat, lng.
+
+	Returns:
+		1D numpy array of shape (len(points), ) containing distances in metres."""
 	if isinstance(points, numpy.ndarray) and points.dtype.kind == 'f':
 		if points.shape[0] == 2:
-			lngs, lats = points
+			lngs, lats = points  # ty: ignore[not-iterable] #yes it is, it's just typed weirdly
 		elif points.shape[1] == 2:
-			lngs, lats = points.T
+			lngs, lats = points.T  # ty: ignore[not-iterable] #yes it is, it's just typed weirdly
 		else:
 			raise ValueError(
 				'If points is a numpy array of floats, it must be 2D, wih one axis having size 2'
 			)
 	else:
 		if isinstance(points, Collection) and not isinstance(points, (Sequence, GeoSeries)):
-			points = list(points)
-		lngs, lats = shapely.get_coordinates(points).T
+			points = list(points)  # ty:ignore[invalid-assignment] #it is narrowing the return type of list(points) to list[object], which I guess technically could happen if it was passed in as a numpy array of not-floats
+		lngs, lats = shapely.get_coordinates(points).T  # ty:ignore[invalid-argument-type] #points should have been narrowed to list[Point] instead of Collection[Point]
 	dist_func = haversine_distance if use_haversine else geod_distances
 	if isinstance(target_point, shapely.Point):
 		target_lat = target_point.y
@@ -284,7 +287,18 @@ def self_cartesian_product_distances(gs: GeoSeries, *, use_haversine: bool = Fal
 def cartesian_product_distances(
 	gs_from: GeoSeries, gs_to: GeoSeries, *, use_haversine: bool = False
 ):
-	"""Distances from every point in `gs_from` to every point in `gs_to`. Tries to be as efficient as possible. Probably isn't."""
+	"""Distances from every point in `gs_from` to every point in `gs_to`. Tries to be as efficient as possible. Probably isn't.
+
+	Results are undefined if either object has an index that is multi-level or not unique, it will probably just not work.
+
+	Arguments:
+		gs_from: GeoSeries, geometries must be points.
+		gs_to: GeoSeries, geometries must be points.
+		use_haversine: Use haversine instead of geodetic distance, defaults to False.
+
+	Returns:
+		DataFrame with the index of `gs_from`, each row containing distances (in metres) to each point in `gs_to` as columns.
+	"""
 	coords_from = shapely.get_coordinates(gs_from)
 	coords_to = shapely.get_coordinates(gs_to)
 	n_from = gs_from.size

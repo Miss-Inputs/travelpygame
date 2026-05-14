@@ -1,4 +1,4 @@
-"""Functions to simulate TPG seasons, playing out rounds as though everyone was there to submit their best pic."""
+"""Functions to simulate TPG seasons, playing out rounds as though everyone was there to submit their best pic (or other customizable strategies/simulated behaviours)."""
 
 import logging
 from collections import Counter, defaultdict
@@ -17,7 +17,7 @@ from tqdm.auto import tqdm
 from .best_pics import get_best_pic
 from .scoring import score_round
 from .tpg_data import Round, ScoringOptions, Submission
-from .util.other import format_point, format_xy
+from .util import format_point, format_xy
 
 if TYPE_CHECKING:
 	from .point_set import PointSet

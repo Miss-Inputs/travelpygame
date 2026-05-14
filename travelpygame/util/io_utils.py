@@ -46,7 +46,7 @@ def read_dataframe_pickle(path: PurePath | str, **tqdm_kwargs) -> pandas.DataFra
 		) as t,
 	):
 		# Don't really need to use pandas.read_pickle here, but also don't really need not to
-		obj = pandas.read_pickle(t)  # type: ignore[invalid-argument-type] #supposedly, the wrapattr stream isn't entirely compatible with what pandas.read_pickle (or pickle.load) wants, but it's fine
+		obj = pandas.read_pickle(t)  # ty: ignore[invalid-argument-type] #supposedly, the wrapattr stream isn't entirely compatible with what pandas.read_pickle (or pickle.load) wants, but it's fine
 	if not isinstance(obj, pandas.DataFrame):
 		raise TypeError(f'Unpickled object was {type(obj)}, DataFrame expected')
 	return obj

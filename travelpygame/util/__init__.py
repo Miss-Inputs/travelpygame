@@ -1,3 +1,10 @@
+from .crs import (
+	apply_transformed,
+	get_centroid,
+	get_metric_crs,
+	get_projected_crs,
+	get_transform_methods,
+)
 from .distance import (
 	geod_distance,
 	geod_distance_and_bearing,
@@ -8,30 +15,24 @@ from .distance import (
 	haversine_distance,
 	wgs84_geod,
 )
-from .geo_utils import (
-	apply_transformed,
-	circular_mean,
-	circular_mean_points,
-	circular_mean_xy,
+from .formatting import (
+	format_area,
+	format_dataframe,
+	format_distance,
+	format_number,
+	format_ordinal,
+	format_point,
+	format_xy,
+	get_ordinal,
+)
+from .geom_utils import (
 	contains_any,
 	find_first_geom_index,
-	fix_x_coord,
-	fix_y_coord,
-	get_antipode,
-	get_antipodes,
-	get_area,
-	get_centroid,
-	get_geometry_antipode,
-	get_metric_crs,
-	get_midpoint,
-	get_point_antipodes,
 	get_poly_vertices,
 	get_polygons,
-	get_projected_crs,
 	get_total_bounds,
-	get_transform_methods,
-	mean_points,
 )
+from .graph import to_graph
 from .io_utils import (
 	geodataframe_to_csv,
 	geometry_to_file,
@@ -54,17 +55,6 @@ from .kml import (
 	SubmissionTrackerRound,
 	parse_submission_kml,
 )
-from .other import (
-	format_area,
-	format_dataframe,
-	format_distance,
-	format_number,
-	format_ordinal,
-	format_point,
-	format_xy,
-	get_ordinal,
-	to_graph,
-)
 from .pandas_utils import (
 	detect_cat_cols,
 	find_first_matching_column,
@@ -77,6 +67,21 @@ from .point_construction import (
 	get_extreme_corner_points,
 	get_extreme_corners_of_point_set,
 	get_extreme_points,
+)
+from .world_geo import (
+	circular_mean,
+	circular_mean_points,
+	circular_mean_xy,
+	fix_x_coord,
+	fix_y_coord,
+	get_antipode,
+	get_antipodes,
+	get_area,
+	get_geometry_antipode,
+	get_midpoint,
+	get_midpoint_centre,
+	get_point_antipodes,
+	mean_points,
 )
 
 __all__ = [
@@ -121,6 +126,7 @@ __all__ = [
 	'get_geometry_antipode',
 	'get_metric_crs',
 	'get_midpoint',
+	'get_midpoint_centre',
 	'get_ordinal',
 	'get_point_antipodes',
 	'get_poly_vertices',

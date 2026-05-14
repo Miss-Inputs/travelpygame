@@ -88,6 +88,7 @@ def score_distances(
 	is_antipode_5k: pandas.Series | None,
 	options: ScoringOptions,
 ):
+	# TODO: This might need to be refactored into separate functions for scoring with main TPG rules, scoring with AusTPG-style rules (with variable parameters), etc
 	n = distances.size
 
 	if options.distance_divisor:
@@ -97,12 +98,12 @@ def score_distances(
 	else:
 		world_distance = options.world_distance_km * 1_000
 		distance_scores = (world_distance - distances) / 1_000
-		distance_scores *= 5_000 / options.world_distance_km
+		distance_scores *= 5_000.0 / options.world_distance_km  # ty:ignore[unsupported-operator] #float / Series[float] is very much supported?
 	if options.clip_negative:
 		distance_scores = distance_scores.clip(0)
 
 	players_beaten = n - distances.rank(method='max', ascending=True)
-	players_beaten_scores = 5000 * (players_beaten / (n - 1))
+	players_beaten_scores = (players_beaten / (n - 1)) * 5000.0
 
 	scores = distance_scores + players_beaten_scores
 	scores.name = 'score'
