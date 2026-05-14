@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from enum import Enum, auto
 from operator import itemgetter
 from statistics import mean
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pandas
 from geopandas import GeoDataFrame
@@ -15,10 +15,12 @@ from shapely import Point
 from tqdm.auto import tqdm
 
 from .best_pics import get_best_pic
-from .point_set import PointSet
-from .scoring import main_tpg_scoring, score_round
-from .tpg_data import Round, ScoringOptions, Submission, combine_player_submissions_to_point_sets
+from .scoring import score_round
+from .tpg_data import Round, ScoringOptions, Submission
 from .util.other import format_point, format_xy
+
+if TYPE_CHECKING:
+	from .point_set import PointSet
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +42,7 @@ class Simulation:
 	"""Dictionary of round name -> round target."""
 	round_order: dict[str, int] | None
 	"""Order for each round (round name -> number), if desired, effectively sets the round number (i.e. lower numbers first)."""
-	point_sets: Collection[PointSet]
+	point_sets: Collection['PointSet']
 	"""Point sets for each player that will be simulated."""
 	scoring: ScoringOptions
 	strategy: SimulatedStrategy = SimulatedStrategy.Closest
@@ -48,7 +50,7 @@ class Simulation:
 	use_tqdm: bool = True
 	# Probably want a random seed parameter in here? Though the rounds have already been rolled, it would only be used for SimulatedStrategy.Random, which is just there for the sake of it really
 
-	def _choose_pic(self, point_set: PointSet, target: Point):
+	def _choose_pic(self, point_set: 'PointSet', target: Point):
 		if self.strategy == SimulatedStrategy.Random:
 			desc, point = next(point_set.points.sample(1).items())
 			assert isinstance(point, Point), f'point was {type(point)}, expected Point'
@@ -104,26 +106,6 @@ class Simulation:
 					rounds.append(self.simulate_round(name, i, target))
 			return rounds
 		return [self.simulate_round(name, i, target) for i, (name, target) in enumerate(items, 1)]
-
-
-def simulate_existing_rounds(
-	rounds: Collection[Round],
-	point_sets: Collection[PointSet] | None = None,
-	scoring: ScoringOptions | None = None,
-	strategy: SimulatedStrategy = SimulatedStrategy.Closest,
-	*,
-	use_haversine: bool = True,
-) -> Simulation:
-	if not point_sets:
-		logger.info('Loading point sets from rounds')
-		point_sets = {
-			PointSet(points, player)
-			for player, points in combine_player_submissions_to_point_sets(rounds).items()
-		}
-	targets = {r.name or f'Round {r.number}': r.target for r in rounds}
-	scoring = scoring or main_tpg_scoring
-	order = {r.name or f'Round {r.number}': r.number for r in rounds}
-	return Simulation(targets, order, point_sets, scoring, strategy, use_haversine=use_haversine)
 
 
 def _add_submission_summary(
