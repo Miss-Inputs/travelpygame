@@ -4,14 +4,16 @@ import logging
 from collections.abc import Callable, Collection, Hashable, Sequence
 from dataclasses import dataclass
 from enum import Enum, auto
+from functools import partial
 from itertools import product
 from operator import itemgetter
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 import numpy
 import pandas
 import shapely
 from geopandas import GeoDataFrame, GeoSeries
+from scipy.cluster.hierarchy import fcluster, linkage
 from scipy.optimize import differential_evolution
 from tqdm.auto import tqdm
 
@@ -374,3 +376,31 @@ def get_point_set_distance(
 
 	closest_dist, closest_a, closest_b = min(closest_distances, key=itemgetter(0))
 	return PointSetDistanceInfo(dist, closest_dist, closest_a, closest_b)
+
+
+def _distance_metric_func(u: 'numpy.ndarray', v: 'numpy.ndarray', t: tqdm):
+	t.update()
+	return geod_distance((u[1], u[0]), (v[1], v[0]))
+
+
+def find_clusters(
+	points: GeoSeries,
+	threshold: float,
+	linkage_method: Literal['single', 'complete', 'average'] = 'average',
+):
+	"""Finds clusters using hierarchal clustering. May be slow on larger datasets.
+
+	Arguments:
+		points: GeoSeries containing points.
+		threshold: Linkage threshold in metres.
+
+	"""
+	coords = shapely.get_coordinates(points)
+
+	size = points.index.size
+	# We can just use fclusterdata, but it's probably cleaner down the line to do it in two separate steps
+	with tqdm(desc='Clustering', total=(size * (size - 1)) / 2) as t:
+		# Potentially, we want to use scipy.spatial.distance.pdist to get a distance matrix ourself, but eh, we can let linkage() do it
+		linkage_matrix = linkage(coords, linkage_method, partial(_distance_metric_func, t=t))
+		labels = fcluster(linkage_matrix, threshold, 'distance')
+	return GeoSeries(labels, index=points.index)
