@@ -3,10 +3,12 @@
 import asyncio
 import logging
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from aiohttp import ClientSession
+from async_lru import alru_cache
 from geopandas import GeoDataFrame
 from shapely import Point
 from tqdm.auto import tqdm
@@ -21,7 +23,7 @@ from .morphior_api import (
 	iter_all_submissions,
 )
 from .point_set import PointSet
-from .tpg_api import GameID, PlayerID, get_games
+from .tpg_api import GameID, PlayerID, get_games, get_rounds
 from .util import load_points_async, output_geodataframe
 from .util.web import user_agent
 
@@ -45,6 +47,8 @@ class SubmissionInfo:
 	official_game_id: GameID | None = None
 	round_num: int | None = None
 	"""If official, this is what round it was in"""
+	round_start_time: datetime | None = None
+	"""If official, this is when the round started, i.e. submission was submitted after this"""
 	# Could put tracker name or layer name in here, but for now that will do
 
 
@@ -91,6 +95,25 @@ async def get_game_names(
 		tracker_names[tracker.tracker_id] = name
 
 	return official_names, spinoff_names, tracker_names
+
+
+@alru_cache
+async def get_round_starts(
+	game_id: GameID, session: ClientSession | None = None, *, forbid_extra: bool = False
+) -> dict[int, datetime]:
+	rounds = await get_rounds(game_id, session, forbid_extra=forbid_extra)
+	return {r.number: r.start_timestamp for r in rounds if r.start_timestamp is not None}
+
+
+async def get_round_start(
+	game_id: GameID,
+	round_num: int,
+	session: ClientSession | None = None,
+	*,
+	forbid_extra: bool = False,
+):
+	start_times = await get_round_starts(game_id, session, forbid_extra=forbid_extra)
+	return start_times.get(round_num)
 
 
 async def get_submission_occurrences(
@@ -143,6 +166,9 @@ async def get_submission_occurrences(
 							game_name,
 							occ.game_id,
 							occ.round,
+							await get_round_start(
+								occ.game_id, occ.round, session, forbid_extra=forbid_extra
+							),
 						)
 					)
 				else:
