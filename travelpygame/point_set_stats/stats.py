@@ -31,9 +31,10 @@ class PointSetStats:
 	closest_to_bbox: shapely.Point
 	raw_centroid: shapely.Point
 	"""Computed using normal geometric CRS, so technically wrong and assumes flat earth"""
-	centroid: shapely.Point
-	"""Computed using projected CRS"""
+	centroid: shapely.Point | None
+	"""Optional, computed using projected CRS"""
 	centre_of_extremes: shapely.Point
+	"""Centre of bounding box"""
 	geometric_median: shapely.Point | None
 	"""Optional since it can take some time to compute"""
 	antipoint: shapely.Point | None
@@ -82,9 +83,10 @@ class PointSetStats:
 			'Median point': self.arithmetic_median,
 			'Closest point to bounding box corners': self.closest_to_bbox,
 			'Centroid': self.raw_centroid,
-			'Centroid (projected)': self.centroid,
 			'Centre of extremes': self.centre_of_extremes,
 		}
+		if self.centroid is not None:
+			d['Centroid (projected)'] = self.centroid
 		if self.geometric_median is not None:
 			d['Geometric median'] = self.geometric_median
 		return d
@@ -106,7 +108,13 @@ class PointSetStats:
 		}
 
 
-def get_point_set_stats(point_set: 'PointSet', *, find_geomedian: bool, find_antipoint: bool):
+def get_point_set_stats(
+	point_set: 'PointSet',
+	*,
+	find_geomedian: bool = False,
+	find_antipoint: bool = False,
+	get_projected_centroid: bool = True,
+):
 	geo = point_set.points
 	coords = shapely.get_coordinates(geo)
 	west, south, east, north = geo.total_bounds
@@ -146,8 +154,12 @@ def get_point_set_stats(point_set: 'PointSet', *, find_geomedian: bool, find_ant
 	diagonal_dist = geod_distance(sw, ne)
 
 	raw_centroid = shapely.centroid(point_set.multipoint)
-	centroid = point_set.centroid
-	centroid_distances = point_set.get_all_distances(centroid)
+	if get_projected_centroid:
+		centroid = point_set.centroid
+		centroid_distances = point_set.get_all_distances(centroid)
+	else:
+		centroid = None
+		centroid_distances = point_set.get_all_distances(raw_centroid)
 	total_centroid_dist = centroid_distances.sum()
 	max_centroid_dist = centroid_distances.max()
 
