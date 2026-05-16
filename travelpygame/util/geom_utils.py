@@ -80,7 +80,14 @@ def find_first_geom_index(
 	return rows.index[0]
 
 
-def get_total_bounds(geoms: Iterable[BaseGeometry] | GeoSeries | GeoDataFrame | GeometryArray):
+def get_total_bounds(
+	geoms: Iterable[BaseGeometry] | GeoSeries | GeoDataFrame | GeometryArray,
+) -> tuple[float, float, float, float]:
+	"""Shortcut for Geo*.total_bounds, but also works with any iterable of geometries.
+
+	Returns:
+		min x (lng), min y (lat), max x (lng), max y (lat)
+	"""
 	if isinstance(geoms, (GeoSeries, GeoDataFrame, GeometryArray)):
 		total_bounds = geoms.total_bounds
 		# Ensures it ends up being float instead of numpy.floating, because I'm just petty like that
@@ -94,3 +101,20 @@ def get_total_bounds(geoms: Iterable[BaseGeometry] | GeoSeries | GeoDataFrame | 
 		max_x = max(all_max_x)
 		max_y = max(all_max_y)
 	return min_x, min_y, max_x, max_y
+
+
+def get_bbox_corners(
+	geoms: Iterable[BaseGeometry] | GeoSeries | GeoDataFrame | GeometryArray,
+) -> tuple[shapely.Point, shapely.Point, shapely.Point, shapely.Point]:
+	"""Returns corner points of the bounding box of `geoms` as a tuple:
+	min_x/min_y (southwest)
+	max_x/min_y (southeast)
+	min_x/max_y (northwest)
+	max_x/max_y (northeast)
+	"""
+	min_x, min_y, max_x, max_y = get_total_bounds(geoms)
+	sw = shapely.Point(min_x, min_y)
+	se = shapely.Point(max_x, min_y)
+	nw = shapely.Point(min_x, max_y)
+	ne = shapely.Point(max_x, max_y)
+	return sw, se, nw, ne
