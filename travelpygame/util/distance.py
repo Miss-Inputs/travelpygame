@@ -11,10 +11,12 @@ import pandas
 import pyproj
 import shapely
 from geopandas import GeoSeries
+from numpy.typing import NDArray
 
 wgs84_geod = pyproj.Geod(ellps='WGS84')
 
-FloatListlike = Sequence[float] | numpy.ndarray | pandas.Series
+type FloatNDArray = NDArray[numpy.floating]
+type FloatListlike = Sequence[float] | FloatNDArray | pandas.Series
 """Accepted input types to pyproj.Geod.inv, although other stuff would probably work, this is just what works as a type hint."""
 
 
@@ -32,7 +34,7 @@ def geod_distance_and_bearing(
 	lng2: FloatListlike,
 	*,
 	radians: bool = False,
-) -> tuple[numpy.ndarray, numpy.ndarray]: ...
+) -> tuple[FloatNDArray, FloatNDArray]: ...
 
 
 def geod_distance_and_bearing(
@@ -42,7 +44,7 @@ def geod_distance_and_bearing(
 	lng2: float | FloatListlike,
 	*,
 	radians: bool = False,
-) -> tuple[float | numpy.ndarray, float | numpy.ndarray]:
+) -> tuple[float | FloatNDArray, float | FloatNDArray]:
 	"""
 	Calculates the WGS84 geodesic distance and heading from one point to another. lat1/lng1/lat2/lng2 can either all be floats, or all arrays.
 
@@ -88,23 +90,23 @@ def haversine_distance(
 
 @overload
 def haversine_distance(
-	lat1: numpy.ndarray,
-	lng1: numpy.ndarray,
-	lat2: numpy.ndarray,
-	lng2: numpy.ndarray,
+	lat1: FloatNDArray,
+	lng1: FloatNDArray,
+	lat2: FloatNDArray,
+	lng2: FloatNDArray,
 	*,
 	radians: bool = False,
-) -> numpy.ndarray: ...
+) -> FloatNDArray: ...
 
 
 def haversine_distance(
-	lat1: float | numpy.ndarray,
-	lng1: float | numpy.ndarray,
-	lat2: float | numpy.ndarray,
-	lng2: float | numpy.ndarray,
+	lat1: float | FloatNDArray,
+	lng1: float | FloatNDArray,
+	lat2: float | FloatNDArray,
+	lng2: float | FloatNDArray,
 	*,
 	radians: bool = False,
-) -> float | numpy.ndarray:
+) -> float | FloatNDArray:
 	"""Calculates haversine distance (which TPG uses), treating the earth as a sphere.
 
 	Arguments:
@@ -135,8 +137,8 @@ def haversine_distance(
 
 
 def geod_distances(
-	lat: numpy.ndarray, lng: numpy.ndarray, target_lat: numpy.ndarray, target_lng: numpy.ndarray
-) -> numpy.ndarray:
+	lat: FloatNDArray, lng: FloatNDArray, target_lat: FloatNDArray, target_lng: FloatNDArray
+) -> FloatNDArray:
 	"""Vectorized get_geod_distance_and_bearing that just gets the distance and not bearing (for symmetry with haversine_distance)."""
 	return geod_distance_and_bearing(lat, lng, target_lat, target_lng)[0]
 
@@ -146,7 +148,7 @@ def get_distances(
 	points: Collection[shapely.Point] | shapely.MultiPoint | numpy.ndarray | GeoSeries,
 	*,
 	use_haversine: bool = False,
-):
+) -> FloatNDArray:
 	"""Finds the distances from all points in `points` to `target_point`, in the original order of points. By default, uses geodetic distance. If `target_point` is a tuple, it should be lat, lng.
 
 	Returns:
@@ -191,7 +193,7 @@ def get_closest_point(
 	if isinstance(points, Sequence):
 		distances = get_distances(target_point, points, use_haversine=use_haversine)
 		index = distances.argmin().item()
-		return points[index], distances[index]
+		return points[index], distances[index]  # ty:ignore[invalid-return-type] #points should be narrowed to Sequence[shapely.Point] here, and so points[index] should be shapely.Point, but it ends up being object
 
 	generator = (
 		(
@@ -260,7 +262,9 @@ def get_closest_points(
 	return [point for i, point in enumerate(points) if distances[i] == shortest], shortest
 
 
-def self_cartesian_product_distances(gs: GeoSeries, *, use_haversine: bool = False):
+def self_cartesian_product_distances(
+	gs: GeoSeries, *, use_haversine: bool = False
+) -> dict[Hashable, dict[Hashable, float]]:
 	"""Distances from every point in `gs` to every other point. Tries to be as efficient as possible. Probably isn't.
 
 	Returns:
@@ -279,14 +283,14 @@ def self_cartesian_product_distances(gs: GeoSeries, *, use_haversine: bool = Fal
 	for i, distance in enumerate(half_distances):
 		from_i = gs.index[from_indexes[i]]
 		to_i = gs.index[to_indexes[i]]
-		distances[from_i][to_i] = distance
-		distances[to_i][from_i] = distance
+		distances[from_i][to_i] = distance.item()
+		distances[to_i][from_i] = distance.item()
 	return distances
 
 
 def cartesian_product_distances(
 	gs_from: GeoSeries, gs_to: GeoSeries, *, use_haversine: bool = False
-):
+) -> pandas.DataFrame:
 	"""Distances from every point in `gs_from` to every point in `gs_to`. Tries to be as efficient as possible. Probably isn't.
 
 	Results are undefined if either object has an index that is multi-level or not unique, it will probably just not work.
