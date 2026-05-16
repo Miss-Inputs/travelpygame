@@ -81,6 +81,14 @@ class PointSet:
 		distances = get_distances(target, self.points, use_haversine=use_haversine)
 		return Series(distances, index=self.points.index).sort_values()
 
+	def get_closest_index(
+		self, target: shapely.Point | tuple[float, float], *, use_haversine: bool = False
+	) -> tuple[Hashable, float]:
+		"""Gets the index of the point in this point set that is closest to a given target, and the distance in metres."""
+		distances = get_distances(target, self.points, use_haversine=use_haversine)
+		argmin = distances.argmin()
+		return self.points.index[argmin.item()], distances[argmin]
+
 	@cached_property
 	def projected_crs(self):
 		if self.projected_crs_arg is None:
