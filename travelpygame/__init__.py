@@ -1,7 +1,5 @@
-from .best_pics import get_best_pic
 from .new_pic_eval import find_if_new_pics_better, load_points_or_rounds
 from .point_set import PointSet, validate_points
-from .point_set_stats import find_furthest_point
 from .random_points import random_point_in_bbox, random_point_in_poly, random_points_in_poly
 from .scoring import main_tpg_scoring, make_leaderboards, score_round
 from .submission_data import (
@@ -40,12 +38,10 @@ __all__ = [
 	'ScoringOptions',
 	'Submission',
 	'convert_submission_tracker',
-	'find_furthest_point',
 	'find_if_new_pics_better',
 	'geod_distance',
 	'geodataframe_to_csv',
 	'get_all_point_sets',
-	'get_best_pic',
 	'get_closest_index',
 	'get_closest_point',
 	'get_main_tpg_rounds',
