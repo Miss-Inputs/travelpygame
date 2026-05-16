@@ -25,6 +25,21 @@ from .formatting import (
 	format_xy,
 	get_ordinal,
 )
+from .geo_utils import (
+	circular_mean,
+	circular_mean_points,
+	circular_mean_xy,
+	fix_x_coord,
+	fix_y_coord,
+	get_antipode,
+	get_antipodes,
+	get_area,
+	get_geometry_antipode,
+	get_midpoint,
+	get_midpoint_centre,
+	get_point_antipodes,
+	mean_points,
+)
 from .geom_utils import (
 	contains_any,
 	find_first_geom_index,
@@ -67,21 +82,6 @@ from .point_construction import (
 	get_extreme_corner_points,
 	get_extreme_corners_of_point_set,
 	get_extreme_points,
-)
-from .world_geo import (
-	circular_mean,
-	circular_mean_points,
-	circular_mean_xy,
-	fix_x_coord,
-	fix_y_coord,
-	get_antipode,
-	get_antipodes,
-	get_area,
-	get_geometry_antipode,
-	get_midpoint,
-	get_midpoint_centre,
-	get_point_antipodes,
-	mean_points,
 )
 
 __all__ = [
