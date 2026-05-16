@@ -6,17 +6,20 @@ if TYPE_CHECKING:
 	from pandas import DataFrame
 	from shapely import Point
 
+
 def format_number(n: float, decimal_places: int = 6):
 	"""Stops printing annoying stupid scientific notation which looks ugly and sucks grawwrrrr"""
 	if n.is_integer():
 		return f'{n:n}'
 	return f'{n:,.{decimal_places}f}'.rstrip('0')
 
+
 def get_ordinal(n: int) -> str:
 	"""Gets the ordinal suffix (st/th/etc). Anglo-centric due to lack of any idea of how other languages do ordinals, so shouldn't be used for anything _too_ serious."""
 	if 10 <= n % 100 <= 20:
 		return 'th'
 	return {1: 'st', 2: 'nd', 3: 'rd'}.get(n % 10, 'th')
+
 
 def format_ordinal(n: float) -> str:
 	"""Formats a float as an ordinal, e.g. 3.0 -> "3rd", 4.0 -> "4th", 1.23 -> "1.23th" for lack of a better way to do that."""
@@ -25,6 +28,7 @@ def format_ordinal(n: float) -> str:
 		return f'{n:.2f}th'
 	n = int(n)
 	return f'{n}{get_ordinal(n)}'
+
 
 def format_xy(x: float, y: float, decimal_places: int | None = 6) -> str:
 	"""Formats x and y coordinates. 6 decimal places should be more than enough for anybody, see also: https://xkcd.com/2170/"""
@@ -37,6 +41,7 @@ def format_xy(x: float, y: float, decimal_places: int | None = 6) -> str:
 def format_point(p: 'Point', decimal_places: int | None = 6) -> str:
 	"""Formats point geometries more nicely than builtin WKT representation. 6 decimal places should be more than enough for anybody, see also: https://xkcd.com/2170/"""
 	return format_xy(p.x, p.y, decimal_places)
+
 
 def format_distance(n: float, decimal_places: int = 6, unit: str = 'm'):
 	"""Formats a distance (in metres by default, could be used for other metric units too) as a human-readable string with abbreviated kilo/centi prefixes as appropriate."""
@@ -62,9 +67,9 @@ def _format_dataframe_inner(
 	if isinstance(cols, Iterable) and not isinstance(cols, (str, bytes)):
 		for col in cols:
 			if col in df:
-				df[col] = df[col].map(formatter)
+				df[col] = df[col].map(formatter, na_action='ignore')
 	elif cols in df:
-		df[cols] = df[cols].map(formatter)
+		df[cols] = df[cols].map(formatter, na_action='ignore')
 
 
 def format_dataframe(
