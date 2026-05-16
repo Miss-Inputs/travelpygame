@@ -1,6 +1,6 @@
 import logging
 from collections import Counter
-from collections.abc import Hashable
+from collections.abc import Hashable, Iterator
 from functools import cached_property
 from typing import Any
 
@@ -34,6 +34,14 @@ class PointSet:
 		self.points: GeoSeries = gdf.geometry
 		self.projected_crs_arg: Any = projected_crs
 		"""Argument which may be a CRS or a string etc and has not been validated yet"""
+
+	def items(self) -> Iterator[tuple[Hashable, shapely.Point]]:
+		for index, geom in self.points.items():
+			if not isinstance(geom, shapely.Point):
+				raise TypeError(
+					f'Point set {self.name} contained geometry {index} which is {type(geom)}, it is assumed to only contain points'
+				)
+			yield index, geom
 
 	@property
 	def count(self) -> int:
