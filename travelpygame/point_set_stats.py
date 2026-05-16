@@ -28,7 +28,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def _diagonal_dist(poly: 'BaseGeometry'):
+def _diagonal_dist(poly: 'BaseGeometry') -> float:
 	minx, miny, maxx, maxy = poly.bounds
 	return geod_distance((miny, minx), (maxy, maxx))
 
@@ -390,7 +390,7 @@ def find_clusters(
 	linkage_method: Literal['single', 'complete', 'average'] = 'average',
 	*,
 	use_tqdm: bool = True,
-):
+) -> pandas.Series[int]:
 	"""Finds clusters using hierarchal clustering. May be slow on larger datasets.
 
 	Arguments:
@@ -411,7 +411,7 @@ def find_clusters(
 
 def corner_distance(
 	point: shapely.Point | tuple[float, float], *corners: shapely.Point, use_haversine: bool = False
-):
+) -> float:
 	"""Sum of distances from `point` to each corner in `corners`, intended to be the corner points of a bounding box."""
 	distances = get_distances(point, corners, use_haversine=use_haversine)
 	return distances.sum().item()

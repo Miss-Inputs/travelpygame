@@ -52,7 +52,7 @@ class PointSet:
 		return self.points.to_numpy()
 
 	@cached_property
-	def multipoint(self):
+	def multipoint(self) -> shapely.MultiPoint:
 		return shapely.MultiPoint(self.point_array)
 
 	@cached_property
@@ -71,12 +71,12 @@ class PointSet:
 	def envelope(self):
 		return shapely.envelope(self.multipoint)
 
-	def contains(self, point: shapely.Point, tolerance: float | None = 1e-6):
+	def contains(self, point: shapely.Point, tolerance: float | None = 1e-6) -> bool:
 		return find_first_geom_index(self.points, point, tolerance) is not None
 
 	def get_all_distances(
 		self, target: shapely.Point | tuple[float, float], *, use_haversine: bool = False
-	):
+	) -> Series[float]:
 		"""Gets distances in metres from all points in this point set to a given target, sorted by closest first."""
 		distances = get_distances(target, self.points, use_haversine=use_haversine)
 		return Series(distances, index=self.points.index).sort_values()
@@ -96,7 +96,7 @@ class PointSet:
 		return shapely.MultiPoint(self.points.to_crs(self.projected_crs).to_numpy())
 
 	@cached_property
-	def centroid(self):
+	def centroid(self) -> shapely.Point:
 		"""Takes into account `projected_crs`."""
 		proj_centroid = self.projected_multipoint.centroid
 		# I guess we could cache from_proj here, but it's not that important
