@@ -1,7 +1,7 @@
 from .best_pics import get_best_pic
 from .new_pic_eval import find_if_new_pics_better, load_points_or_rounds
 from .point_set import PointSet, validate_points
-from .point_set_stats import find_furthest_point, get_uniqueness
+from .point_set_stats import find_furthest_point
 from .random_points import random_point_in_bbox, random_point_in_poly, random_points_in_poly
 from .scoring import main_tpg_scoring, make_leaderboards, score_round
 from .submission_data import (
@@ -52,7 +52,6 @@ __all__ = [
 	'get_main_tpg_rounds_with_path',
 	'get_submission_occurrences',
 	'get_submission_summary',
-	'get_uniqueness',
 	'haversine_distance',
 	'load_or_fetch_submission_summary',
 	'load_points',

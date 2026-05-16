@@ -1,7 +1,7 @@
 """Various stats-related things for point sets, that maybe are too complex for putting them in the point_set module to feel right."""
 
 import logging
-from collections.abc import Callable, Collection, Hashable, Sequence
+from collections.abc import Callable, Collection, Sequence
 from dataclasses import dataclass
 from enum import Enum, auto
 from functools import partial
@@ -12,12 +12,12 @@ from typing import TYPE_CHECKING, Any, Literal
 import numpy
 import pandas
 import shapely
-from geopandas import GeoDataFrame, GeoSeries
+from geopandas import GeoSeries
 from scipy.cluster.hierarchy import fcluster, linkage
 from scipy.optimize import differential_evolution
 from tqdm.auto import tqdm
 
-from .util import geod_distance, get_closest_index, get_distances, get_geometry_antipode
+from .util import geod_distance, get_distances, get_geometry_antipode
 from .util.geom_utils import get_bbox_corners
 
 if TYPE_CHECKING:
@@ -166,46 +166,6 @@ def find_geometric_median(
 	if not result.success:
 		logger.info(result.message)
 	return point
-
-
-def get_uniqueness(points: GeoSeries | GeoDataFrame):
-	"""Finds the distance of each point to the closest other point."""
-	if isinstance(points, GeoDataFrame):
-		points = points.geometry
-
-	closest: dict[Hashable, Hashable] = {}
-	dists: dict[Hashable, float] = {}
-	with tqdm(points.items(), 'Getting uniqueness', points.size, unit='point', leave=False) as t:
-		for index, point in t:
-			t.set_postfix(point=index)
-			other = points.drop(index)
-			if not isinstance(point, shapely.Point):
-				raise TypeError(f'{index} was {type(point)}, expected Point')
-
-			closest_index, dists[index] = get_closest_index(point, other.to_numpy())
-			closest[index] = other.index[closest_index]
-	return closest, dists
-
-
-def get_total_uniqueness(points: GeoSeries | GeoDataFrame):
-	"""Finds the total distance of each point to all other points."""
-	if isinstance(points, GeoDataFrame):
-		points = points.geometry
-
-	total_dists: dict[Hashable, float] = {}
-	with tqdm(
-		points.items(), 'Getting total uniqueness', points.size, unit='point', leave=False
-	) as t:
-		for index, point in t:
-			t.set_postfix(point=index)
-			other = points.drop(index)
-			if not isinstance(point, shapely.Point):
-				raise TypeError(f'{index} was {type(point)}, expected Point')
-
-			distances = get_distances(point, other.to_numpy())
-			total_dists[index] = distances.sum().item()
-	total_uniqueness = pandas.Series(total_dists, name='total_uniqueness')
-	return total_uniqueness.sort_values(ascending=False)
 
 
 class Distance1ToManyMethod(Enum):
