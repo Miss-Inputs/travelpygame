@@ -2,7 +2,7 @@ import logging
 from collections import Counter
 from collections.abc import Hashable, Iterator
 from functools import cached_property
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy
 import pyproj
@@ -17,6 +17,9 @@ from travelpygame.util import (
 	get_projected_crs,
 	get_transform_methods,
 )
+
+if TYPE_CHECKING:
+	from numpy.typing import NDArray
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +59,7 @@ class PointSet:
 		return shapely.MultiPoint(self.point_array)
 
 	@cached_property
-	def coord_array(self):
+	def coord_array(self) -> 'NDArray[numpy.floating]':
 		return shapely.get_coordinates(self.points)
 
 	@cached_property

@@ -70,6 +70,7 @@ class PointSetStats:
 	convex_hull_area: float
 	concave_hull_area: float
 	bbox_area: float
+	num_graticles: int
 
 	# Other stuff
 	closest_to_bbox_label: Hashable
@@ -153,6 +154,10 @@ def get_point_set_stats(
 	semost, se_dist = point_set.get_closest_index(se)
 	diagonal_dist = geod_distance(sw, ne)
 
+	# This is a really cheesy way of doing this, but I haven't thought of any reason why not to do it
+	graticules = point_set.coord_array.astype(int)
+	num_unique_graticules = numpy.unique(graticules, sorted=False).shape[0]
+
 	raw_centroid = shapely.centroid(point_set.multipoint)
 	if get_projected_centroid:
 		centroid = point_set.centroid
@@ -197,6 +202,7 @@ def get_point_set_stats(
 		get_area(point_set.convex_hull),
 		get_area(point_set.concave_hull),
 		get_area(bbox),
+		num_unique_graticules,
 		closest_index_to_corners,
 		closest_to_bbox_dist,
 	)
