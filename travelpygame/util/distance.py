@@ -13,6 +13,8 @@ import shapely
 from geopandas import GeoSeries
 from numpy.typing import NDArray
 
+from .geom_utils import get_poly_vertices
+
 wgs84_geod = pyproj.Geod(ellps='WGS84')
 
 type FloatNDArray = NDArray[numpy.floating]
@@ -316,3 +318,28 @@ def cartesian_product_distances(
 	return pandas.DataFrame(
 		distances.reshape(n_from, n_to), index=gs_from.index, columns=gs_to.index
 	)
+
+
+def get_point_to_polygon_distance(
+	point: shapely.Point | tuple[float, float],
+	polygon: shapely.Polygon | shapely.MultiPolygon,
+	densification: float | None = 0.1,
+	*,
+	use_haversine: bool = False,
+) -> tuple[tuple[shapely.Point, float], tuple[shapely.Point, float]]:
+	"""Returns roughly the closest and furthest point anywhere on `polygon` from `point`.
+	Currently just looks at polygon vertices, so doesn't actually give the closest result possible, though the `densification` argument is there to segmentize the polygon boundaries into segments so you get more vertices. Either way this will be slow.
+	May produce unexpected results if `point` is inside a hole inside `polygon` or something like that, for now.
+	"""
+	if densification:
+		polygon = shapely.segmentize(polygon, densification)
+	vertices = get_poly_vertices(polygon)
+	distances = get_distances(point, vertices, use_haversine=use_haversine)
+	closest_index = distances.argmin().item()
+	closest = vertices[closest_index]
+	closest_dist = distances[closest_index].item()
+
+	furthest_index = distances.argmax().item()
+	furthest = vertices[furthest_index]
+	furthest_dist = distances[furthest_index].item()
+	return (closest, closest_dist), (furthest, furthest_dist)

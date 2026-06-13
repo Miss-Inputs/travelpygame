@@ -13,7 +13,10 @@ from shapely.geometry.base import BaseGeometry, BaseMultipartGeometry
 def get_poly_vertices(poly: shapely.Polygon | shapely.MultiPolygon) -> list[shapely.Point]:
 	if isinstance(poly, shapely.MultiPolygon):
 		return list(chain.from_iterable(get_poly_vertices(part) for part in poly.geoms))
-	out = shapely.points(poly.exterior.coords)
+	coords = list(poly.exterior.coords)
+	for interior in poly.interiors:
+		coords += interior.coords
+	out = shapely.points(coords)
 	if isinstance(out, shapely.Point):
 		return [out]
 	return out.tolist()
