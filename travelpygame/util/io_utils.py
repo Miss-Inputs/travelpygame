@@ -71,16 +71,19 @@ def read_geodataframe(path: PurePath | str, *, use_tqdm: bool = True) -> geopand
 		):
 			# Getting the uncompressed size of zst would be nice but I don't think we can do that
 			gdf = geopandas.read_file(f)
-	elif use_tqdm:
-		with (
-			path.open('rb') as raw,
-			tqdm.wrapattr(raw, 'read', path.stat().st_size, desc=f'Reading {path}') as f,
-			warnings.catch_warnings(category=RuntimeWarning, action='ignore'),
-		):
-			# shut up nerd I don't care if it has a GPKG application_id or whatever (does this warning still get shown? Maybe not)
-			gdf = geopandas.read_file(f)
 	else:
-		gdf = geopandas.read_file(path)
+		size = path.stat().st_size
+		if use_tqdm and size < (4 * (1024**3)):
+			# seems to break if you do this for very very very big files
+			with (
+				path.open('rb') as raw,
+				tqdm.wrapattr(raw, 'read', size, desc=f'Reading {path}') as f,
+				warnings.catch_warnings(category=RuntimeWarning, action='ignore'),
+			):
+				# shut up nerd I don't care if it has a GPKG application_id or whatever (does this warning still get shown? Maybe not)
+				gdf = geopandas.read_file(f)
+		else:
+			gdf = geopandas.read_file(path)
 	return gdf
 
 
