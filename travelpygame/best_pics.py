@@ -1,5 +1,5 @@
 """Functions related to getting a best pic within a point set to some point, maybe this could be merged into somewhere else."""
-from collections.abc import Collection
+from collections.abc import Collection, Hashable
 from typing import Any
 
 import numpy
@@ -52,7 +52,7 @@ def get_best_pic(
 
 def get_worst_point(
 	pics: PointCollection, targets: PointCollection, *, use_haversine: bool = False
-):
+) -> tuple[Hashable, float, Hashable]:
 	"""Finds the worst case distance in a group of targets, and the index of that target within `targets`. If `pics` or `targets` are a GeoDataFrame/GeoSeries, returns the index in that object and not the numeric index."""
 	if isinstance(pics, GeoDataFrame):
 		pics = pics.geometry

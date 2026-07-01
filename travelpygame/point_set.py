@@ -29,7 +29,8 @@ _generic_projected_crs = pyproj.CRS(
 
 
 class PointSet:
-	"""Stores a point set and other properties on it to make converting between lots of different types easier. Note: .gdf and .points are intended to be read-only, modifying one might or might not update the other."""
+	"""Represents a fixed set of points somewhere on Earth, with a name, and an index that ideally contains the name/description of each point.
+	Note: .gdf and .points are intended to be read-only, modifying one might or might not update the other."""
 
 	def __init__(self, gdf: GeoDataFrame, name: str, projected_crs: Any | None = None):
 		self.gdf: GeoDataFrame = gdf
@@ -80,7 +81,10 @@ class PointSet:
 	def get_all_distances(
 		self, target: shapely.Point | tuple[float, float], *, use_haversine: bool = False
 	) -> Series[float]:
-		"""Gets distances in metres from all points in this point set to a given target, sorted by closest first."""
+		"""Gets distances in metres from all points in this point set to a given target, sorted by closest first.
+		Returns:
+			Series of distances in metres, with this point set's index.
+		"""
 		distances = get_distances(target, self.coord_array, use_haversine=use_haversine)
 		return Series(distances, index=self.points.index).sort_values()
 

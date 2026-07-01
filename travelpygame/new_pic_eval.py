@@ -1,4 +1,5 @@
-"""Tools to help find what adding new pics would do"""
+"""Tools to help find what adding new pics would do.
+Many of these functions need better names…"""
 
 import logging
 from bisect import bisect
@@ -10,11 +11,9 @@ from typing import TYPE_CHECKING
 import geopandas
 import pandas
 from geopandas import GeoDataFrame, GeoSeries
-from numpy import ndarray
 from shapely import Point
 from tqdm.auto import tqdm
 
-from .best_pics import PointCollection, get_best_pic
 from .submission_comparison import compare_player_in_round
 from .tpg_data import Round, load_rounds
 from .util.distance import get_distances
@@ -22,6 +21,9 @@ from .util.io_utils import load_points
 from .util.kml import parse_submission_kml
 
 if TYPE_CHECKING:
+	from numpy import ndarray
+
+	from .best_pics import PointCollection
 	from .point_set import PointSet
 
 logger = logging.getLogger(__name__)
@@ -68,9 +70,9 @@ def load_points_or_rounds(paths: Path | Sequence[Path]) -> GeoDataFrame:
 
 
 def find_if_new_pics_better(
-	points: 'PointCollection | PointSet',
-	new_points: PointCollection,
-	targets: PointCollection,
+	points: 'PointSet',
+	new_points: 'PointSet',
+	targets: 'PointCollection',
 	*,
 	use_haversine: bool = False,
 ) -> pandas.DataFrame:
@@ -87,8 +89,10 @@ def find_if_new_pics_better(
 				)
 				continue
 			t.set_postfix(index=index)
-			point, distance = get_best_pic(points, target, use_haversine=use_haversine)
-			new_point, new_distance = get_best_pic(new_points, target, use_haversine=use_haversine)
+			point, distance = points.get_closest_index(target, use_haversine=use_haversine)
+			new_point, new_distance = new_points.get_closest_index(
+				target, use_haversine=use_haversine
+			)
 			result = {
 				'current_best': point,
 				'current_distance': distance,
@@ -100,91 +104,55 @@ def find_if_new_pics_better(
 	return pandas.DataFrame.from_dict(results, 'index')
 
 
-def find_new_pic_diffs(
-	points: 'PointCollection | PointSet',
-	new_point: Point,
-	targets: PointCollection,
+def _find_current_bests(
+	points: 'PointSet',
+	targets: 'PointSet',
 	*,
-	use_haversine: bool = False,
-	use_tqdm: bool = True,
-) -> pandas.DataFrame:
-	"""Finds the differences in the best distances from a set of points to targets, and a new point to each target, and whether that is better."""
-	if isinstance(targets, GeoDataFrame):
-		targets = targets.geometry
-	if not isinstance(targets, (Sequence, GeoSeries, ndarray)):
-		targets = list(targets)
-
-	total, items = _to_items(targets)
-	new_point_distances = get_distances(new_point, targets, use_haversine=use_haversine)
-	new_point_distance = pandas.Series(
-		new_point_distances, index=targets.index if isinstance(targets, GeoSeries) else None
-	)
-
-	results = {}
+	use_haversine: bool,
+	use_tqdm: bool,
+	set_postfix: bool,
+) -> pandas.Series:
+	current_distances_d: dict[Hashable, float] = {}
 	with tqdm(
-		items, 'Finding distances for current points and new point', total, disable=not use_tqdm
+		targets.items(), 'Finding current best distances', targets.count, disable=not use_tqdm
 	) as t:
 		for index, target in t:
-			if not isinstance(target, Point):
-				logger.warning(
-					'targets contained %s at index %s, expected Point', type(target), index
-				)
-				continue
-			t.set_postfix(index=index)
-			point, distance = get_best_pic(points, target, use_haversine=use_haversine)
-			new_dist = new_point_distance[index]  # pyright: ignore[reportArgumentType, reportCallIssue]
-			diff = distance - new_dist
-			results[index] = {
-				'current_best': point,
-				'current_distance': distance,
-				'new_distance': new_dist,
-				'diff': diff,
-				'is_better': new_dist < distance,
-			}
-	return pandas.DataFrame.from_dict(results, 'index')
+			if set_postfix:
+				t.set_postfix(target=index)
+			current_distances_d[index] = points.get_closest_index(
+				target, use_haversine=use_haversine
+			)[1]
+	return pandas.Series(current_distances_d)
 
 
 def find_new_pics_better_individually(
-	points: 'PointCollection | PointSet',
-	new_points: PointCollection,
-	targets: PointCollection,
+	points: 'PointSet',
+	new_points: 'PointSet',
+	targets: 'PointSet',
 	*,
 	use_haversine: bool = False,
+	use_tqdm: bool = True,
+	set_postfix: bool = False,
 ) -> pandas.DataFrame:
 	"""For each new point in `new_points`: Finds how often that new point was closer to a point in `targets` compared to `points`, and the total reduction in distance. This function's name kinda sucks, and it is also a tad convoluted and its purpose is also a bit murky, so it may be rewritten mercilessly or removed in future."""
-	if isinstance(new_points, GeoDataFrame):
-		new_points = new_points.geometry
-	if isinstance(targets, GeoDataFrame):
-		targets = targets.geometry
-
-	total, items = _to_items(targets)
-	current_distances_d: dict[Hashable, float] = {}
-	with tqdm(items, 'Finding current best distances', total) as t:
-		for index, target in t:
-			if not isinstance(target, Point):
-				logger.warning(
-					'targets contained %s at index %s, expected Point', type(new_points), index
-				)
-				continue
-			t.set_postfix(target=index)
-			current_distances_d[index] = get_best_pic(points, target, use_haversine=use_haversine)[
-				1
-			]
-	current_distances = pandas.Series(current_distances_d)
+	current_distances = _find_current_bests(
+		points, targets, use_haversine=use_haversine, use_tqdm=use_tqdm, set_postfix=set_postfix
+	)
+	current_distances = current_distances.reindex(index=targets.points.index)
 
 	results = {}
-	total, items = _to_items(new_points)
-	if isinstance(targets, GeoSeries):
-		targets = targets.to_numpy()
-	with tqdm(items, 'Finding impact of new points against targets', total) as t:
+	with tqdm(
+		new_points.items(),
+		'Finding impact of new points against targets',
+		new_points.count,
+		disable=not use_tqdm,
+	) as t:
 		for index, new_point in t:
-			if not isinstance(new_point, Point):
-				logger.warning(
-					'new_points contained %s at index %s, expected Point', type(new_points), index
-				)
-				continue
-			t.set_postfix(new_point=index)
-			new_distances = get_distances(new_point, targets, use_haversine=use_haversine)
+			if set_postfix:
+				t.set_postfix(new_point=index)
+			new_distances = get_distances(
+				new_point, targets.coord_array, use_haversine=use_haversine
+			)
 			is_better = new_distances < current_distances
 			if not is_better.any():
 				continue
@@ -229,7 +197,7 @@ class DistanceImprovement:
 def find_improvements_in_round(
 	round_: Round,
 	player_name: str,
-	new_pics: PointCollection,
+	new_pics: 'PointCollection',
 	distance_required: float | None = None,
 	*,
 	use_haversine: bool = True,
@@ -276,7 +244,7 @@ def find_improvements_in_round(
 def find_improvements_in_rounds(
 	rounds: list[Round],
 	player_name: str,
-	new_pics: PointCollection,
+	new_pics: 'PointCollection',
 	distance_required: float | None = None,
 	*,
 	use_haversine: bool = True,
