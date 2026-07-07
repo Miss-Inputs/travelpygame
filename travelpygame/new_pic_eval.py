@@ -129,6 +129,7 @@ def find_new_pics_better_individually(
 	points: 'PointSet',
 	new_points: 'PointSet',
 	targets: 'PointSet',
+	improvement_threshold: float | None = None,
 	*,
 	use_haversine: bool = False,
 	use_tqdm: bool = True,
@@ -158,6 +159,8 @@ def find_new_pics_better_individually(
 				continue
 			diffs = current_distances - new_distances
 			improvements = diffs[is_better]
+			if improvement_threshold:
+				improvements = improvements[improvements > improvement_threshold]
 
 			total_diff = improvements.sum()
 			best = improvements.idxmax()
