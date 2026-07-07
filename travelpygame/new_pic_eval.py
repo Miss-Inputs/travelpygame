@@ -161,6 +161,8 @@ def find_new_pics_better_individually(
 			improvements = diffs[is_better]
 			if improvement_threshold:
 				improvements = improvements[improvements > improvement_threshold]
+			if improvements.size == 0:
+				continue
 
 			total_diff = improvements.sum()
 			best = improvements.idxmax()
