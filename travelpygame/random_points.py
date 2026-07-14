@@ -1,8 +1,8 @@
 from contextlib import nullcontext
 
-import geopandas
 import numpy
 import shapely
+from geopandas import GeoDataFrame, GeoSeries
 from tqdm.auto import tqdm
 
 from .util.geom_utils import contains_any, contains_any_array
@@ -33,12 +33,12 @@ def random_points_in_bbox(
 	x = random.uniform(min_x, max_x, n)
 	y = random.uniform(min_y, max_y, n)
 	points = shapely.points(x, y)
-	assert not isinstance(points, shapely.Point)
+	assert not isinstance(points, shapely.Point), 'points was a scalar Point'
 	return points
 
 
 def random_point_in_poly(
-	poly: shapely.Polygon | shapely.MultiPolygon | geopandas.GeoSeries | geopandas.GeoDataFrame,
+	poly: shapely.Polygon | shapely.MultiPolygon | GeoSeries | GeoDataFrame,
 	random: RandomSeed = None,
 	*,
 	use_tqdm: bool = False,
@@ -52,7 +52,7 @@ def random_point_in_poly(
 		poly: shapely Polygon or MultiPolygon
 		random: Optionally a numpy random generator or seed, otherwise default_rng is used
 	"""
-	if isinstance(poly, (geopandas.GeoDataFrame, geopandas.GeoSeries)):
+	if isinstance(poly, (GeoDataFrame, GeoSeries)):
 		min_x, min_y, max_x, max_y = poly.total_bounds
 	else:
 		min_x, min_y, max_x, max_y = poly.bounds
@@ -72,7 +72,7 @@ def random_point_in_poly(
 
 
 def random_points_in_poly(
-	poly: shapely.Polygon | shapely.MultiPolygon | geopandas.GeoSeries | geopandas.GeoDataFrame,
+	poly: shapely.Polygon | shapely.MultiPolygon | GeoSeries | GeoDataFrame,
 	n: int,
 	random: RandomSeed = None,
 	*,
@@ -87,7 +87,7 @@ def random_points_in_poly(
 		poly: shapely Polygon or MultiPolygon
 		random: Optionally a numpy random generator or seed, otherwise default_rng is used
 	"""
-	if isinstance(poly, (geopandas.GeoDataFrame, geopandas.GeoSeries)):
+	if isinstance(poly, (GeoDataFrame, GeoSeries)):
 		min_x, min_y, max_x, max_y = poly.total_bounds
 	else:
 		min_x, min_y, max_x, max_y = poly.bounds
@@ -106,4 +106,44 @@ def random_points_in_poly(
 			if isinstance(t, tqdm):
 				t.update(len(contained_points))
 			out += contained_points
+	return out
+
+
+def random_balanced_points(
+	gdf: GeoDataFrame | GeoSeries,
+	n: int,
+	random: RandomSeed | None = None,
+	*,
+	use_tqdm: bool = False,
+	**tqdm_kwargs,
+) -> list[shapely.Point]:
+	"""Random points, with every row in gdf having an equal chance of being selected."""
+	if isinstance(gdf, GeoDataFrame):
+		gdf = gdf.geometry
+	if not isinstance(random, numpy.random.Generator):
+		random = numpy.random.default_rng(random)
+
+	size = gdf.size
+	boxen = gdf.bounds.to_numpy()
+	out = []
+	t = tqdm(total=n, **tqdm_kwargs) if use_tqdm else nullcontext()
+	# It occurs to me that this should just be some kind of callback function instead, but I'll think about it
+
+	with t:
+		while len(out) < n:
+			# Do I really want to be sampling one at a time? I didn't think that far ahead. Oh well
+			i = random.integers(0, size).item()
+			poly = gdf.iloc[i]
+
+			min_x, min_y, max_x, max_y = boxen[i]
+
+			while True:
+				point = random_point_in_bbox(min_x, min_y, max_x, max_y, random)
+				if contains_any(poly, point):
+					break
+
+			if isinstance(t, tqdm):
+				t.update(1)
+			out.append(point)
+
 	return out
