@@ -35,7 +35,7 @@ def _convert_submission(
 		is_antipode_5k=sub.antipode_5k,
 		is_tie=sub.is_tie,
 		username=username,
-		**extra,
+		**extra,  # ty:ignore[invalid-argument-type]
 	)
 
 

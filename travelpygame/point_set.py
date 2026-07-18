@@ -189,7 +189,7 @@ def validate_points(
 	return geo.drop(list(to_drop)) if to_drop else geo, to_drop
 
 
-def get_visited_regions(point_set: PointSet, regions: GeoDataFrame | GeoSeries):
+def get_visited_regions(point_set: PointSet, regions: GeoDataFrame | GeoSeries) -> Counter[Any]:
 	"""Finds regions that a point set contains, and that it does not contain, and how often it contains each region.
 
 	Assumes point_set and regions are in the same CRS.

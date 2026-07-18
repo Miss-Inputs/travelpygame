@@ -174,6 +174,7 @@ def get_distances(
 		target_lng = target_point.x
 	else:
 		target_lat, target_lng = target_point
+	# ty:ignore[invalid-argument-type, unresolved-attribute, no-matching-overload] #huh??
 	return dist_func(
 		numpy.repeat(target_lat, lats.size), numpy.repeat(target_lng, lngs.size), lats, lngs
 	)

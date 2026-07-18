@@ -145,7 +145,7 @@ async def get_submission_occurrences(
 			if not player:
 				logger.warning(
 					'Player %s did not exist, which is strange, the submission at %s, %s will be ignored',
-					sub.player,
+					sub.discord_id,
 					sub.lat,
 					sub.lon,
 				)

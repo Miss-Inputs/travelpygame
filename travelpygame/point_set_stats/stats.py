@@ -115,7 +115,7 @@ def get_point_set_stats(
 	find_geomedian: bool = False,
 	find_antipoint: bool = False,
 	get_projected_centroid: bool = True,
-):
+) -> PointSetStats:
 	geo = point_set.points
 	coords = shapely.get_coordinates(geo)
 	west, south, east, north = geo.total_bounds
