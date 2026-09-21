@@ -8,7 +8,7 @@ from datetime import datetime
 from functools import cached_property
 from io import BytesIO
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Self
 
 import geopandas
 from async_lru import alru_cache
@@ -191,10 +191,12 @@ def _deserialize_gdf(gdf: GeoDataFrame) -> list[GroupedSubmission]:
 		# TODO: Validate everything, probably
 		rounded_lat = row['rounded_lat']
 		rounded_lng = row['rounded_lng']
+		earliest_str = row['earliest_known']
 		earliest_known = (
-			datetime.fromisoformat(row['earliest_known']) if row['earliest_known'] else None
+			datetime.fromisoformat(earliest_str) if isinstance(earliest_str, str) else None
 		)
-		latest_known = datetime.fromisoformat(row['latest_known']) if row['latest_known'] else None
+		latest_str = row['latest_known']
+		latest_known = datetime.fromisoformat(latest_str) if isinstance(latest_str, str) else None
 		game_names = set(from_json(row['game_names']))
 		subs.append(
 			GroupedSubmission(
@@ -210,7 +212,7 @@ def _deserialize_gdf(gdf: GeoDataFrame) -> list[GroupedSubmission]:
 	return subs
 
 
-def _deserialize_geojson(file: Path | bytes):
+def _deserialize_geojson(file: Path | bytes) -> list[GroupedSubmission]:
 	if isinstance(file, bytes):
 		gdf = geopandas.read_file(BytesIO(file), driver='GeoJSON')
 	else:
@@ -242,8 +244,9 @@ class SubmissionSummary:
 		self.submissions = submissions
 
 	@classmethod
-	def from_file(cls, path: Path):
-		return _deserialize_geojson(path)
+	def from_file(cls, path: Path) -> Self:
+		subs = _deserialize_geojson(path)
+		return cls(subs)
 
 	def save_to_file(self, path: Path):
 		geojson = _serialize_geojson(self.submissions)
