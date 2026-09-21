@@ -17,23 +17,17 @@ from pydantic_core import from_json
 from shapely import Point
 from tqdm.auto import tqdm
 
+from travelpygame.tpg_data.main_tpg_import import get_player_id_names, normalize_player_name
+
 from .point_set import PointSet
-from .tpg_api import (
-	GameID,
-	PlayerID,
-	ServerID,
-	get_games,
-	get_players,
-	get_round_submissions,
-	get_rounds,
-)
+from .tpg_api import GameID, PlayerID, ServerID, get_games, get_round_submissions, get_rounds
 from .tpg_api import get_session as get_official_api_session
 from .util import read_geodataframe
 
 if TYPE_CHECKING:
 	from aiohttp import ClientSession
 
-	from .tpg_data import PlayerUsername
+	from .tpg_data.classes import PlayerName
 
 logger = logging.getLogger(__name__)
 
@@ -42,8 +36,8 @@ logger = logging.getLogger(__name__)
 class SubmissionInfo:
 	"""Holds info on a single instance of a submission."""
 
-	player_username: 'PlayerUsername'
-	"""Can be trusted to be a unique key"""
+	player_name: 'PlayerName'
+	"""Can be assumed/trusted to be a unique key"""
 	player_id: PlayerID | None
 	point: Point
 	"""Where this submission is."""
@@ -81,7 +75,7 @@ class GroupedSubmission:
 	Probably needs a better name.
 	"""
 
-	player: 'PlayerUsername'
+	player: 'PlayerName'
 	"""Player name/username, can be assumed to be unique."""
 	point: Point
 	"""Where this submission is (WGS84). The exact value can be anywhere out of the instances of this submission as per rounding."""
@@ -98,7 +92,7 @@ class GroupedSubmission:
 
 
 def _group_player_submissions(
-	player_name: 'PlayerUsername', sub_infos: list[SubmissionInfo]
+	player_name: 'PlayerName', sub_infos: list[SubmissionInfo]
 ) -> list[GroupedSubmission]:
 	by_rounded_coords: defaultdict[tuple[float, float], list[SubmissionInfo]] = defaultdict(list)
 	for sub_info in sub_infos:
@@ -124,9 +118,9 @@ def _group_player_submissions(
 
 
 def group_submissions(sub_infos: list[SubmissionInfo]) -> list[GroupedSubmission]:
-	sub_info_by_player: defaultdict[PlayerUsername, list[SubmissionInfo]] = defaultdict(list)
+	sub_info_by_player: defaultdict[PlayerName, list[SubmissionInfo]] = defaultdict(list)
 	for sub_info in sub_infos:
-		sub_info_by_player[sub_info.player_username].append(sub_info)
+		sub_info_by_player[sub_info.player_name].append(sub_info)
 
 	subs = []
 	for player, player_subs in sub_info_by_player.items():
@@ -159,17 +153,15 @@ def player_submissions_to_point_set(name: str, submissions: list[GroupedSubmissi
 	return PointSet(gdf, name)
 
 
-def _group_by_player(
-	subs: list[GroupedSubmission],
-) -> dict['PlayerUsername', list[GroupedSubmission]]:
-	per_player: defaultdict[PlayerUsername, list[GroupedSubmission]] = defaultdict(list)
+def _group_by_player(subs: list[GroupedSubmission]) -> dict['PlayerName', list[GroupedSubmission]]:
+	per_player: defaultdict[PlayerName, list[GroupedSubmission]] = defaultdict(list)
 	for sub in subs:
 		per_player[sub.player].append(sub)
 	return per_player
 
 
 def get_all_point_sets(
-	submissions: list[GroupedSubmission] | dict['PlayerUsername', list[GroupedSubmission]],
+	submissions: list[GroupedSubmission] | dict['PlayerName', list[GroupedSubmission]],
 	minimum_datetime: datetime | None = None,
 	minimum_count: int | None = None,
 ) -> list[PointSet]:
@@ -258,7 +250,7 @@ class SubmissionSummary:
 		return path.write_text(geojson, 'utf-8')
 
 	@cached_property
-	def per_player(self) -> dict['PlayerUsername', list[GroupedSubmission]]:
+	def per_player(self) -> dict['PlayerName', list[GroupedSubmission]]:
 		return _group_by_player(self.submissions)
 
 
@@ -287,10 +279,7 @@ async def get_all_official_data(
 	round_infos = []
 	submissions = []
 
-	player_names = {
-		player.discord_id: player.username or player.discord_id
-		for player in await get_players(session)
-	}
+	player_names = await get_player_id_names(session)
 
 	games = await get_games(session, forbid_extra=forbid_extra)
 	for game in tqdm(
@@ -313,7 +302,6 @@ async def get_all_official_data(
 				r.number, game.id, session, forbid_extra=forbid_extra
 			)
 			for sub in subs:
-				# TODO: Use player name but ensure it is disambiguated, which maybe we have ways of doing
 				player_name = player_names.get(sub.discord_id, f'<{sub.discord_id}>')
 				point = Point(sub.longitude, sub.latitude)
 				lat = round(sub.latitude, rounding) if rounding is not None else sub.latitude
@@ -410,9 +398,10 @@ async def convert_cellery_geojson(
 			if game_id is not None:
 				round_starts = start_times.get(game_id, {})
 				round_start_time = round_starts.get(round_num)
+			name = normalize_player_name(row['username'])
 
 			sub = SubmissionInfo(
-				row['username'],
+				name,
 				None,
 				point,
 				(lat, lng),

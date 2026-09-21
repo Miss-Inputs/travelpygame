@@ -166,3 +166,39 @@ async def get_player_display_names(
 			}
 
 	return names
+
+
+# We might not need those last two anymore, but I'll fiddle with it later
+
+
+def normalize_player_name(name: str):
+	name = probably_emoji.sub('', name)
+	# Probably more that can be done there, but that will do the trick
+	return name.strip()
+
+
+async def get_player_id_names(
+	session: 'ClientSession|None' = None, *, normalize: bool = True
+) -> dict[tpg_api.PlayerID, PlayerName]:
+	"""Returns a dict mapping Discord IDs to display names. Any player returned by the API without a Discord ID is ignored. If any display name is duplicated, returns the username for any player with that display name instead."""
+	if session is None:
+		async with tpg_api.get_session() as sesh:
+			return await get_player_id_names(sesh, normalize=normalize)
+
+	names_and_usernames: dict[tpg_api.PlayerID, tuple[PlayerName, PlayerUsername]] = {}
+	players = await tpg_api.get_players(session)
+	for player in players:
+		discord_id = player.discord_id
+		if not discord_id:
+			continue
+		name = player.name
+		if normalize:
+			name = normalize_player_name(name)
+		names_and_usernames[discord_id] = (name, player.username or f'{player.discord_id} {name}')
+
+	counter = Counter(name[0] for name in names_and_usernames.values())
+	duplicate_names = {name for name, count in counter.items() if count > 1}
+	return {
+		discord_id: username if name in duplicate_names else name
+		for discord_id, (name, username) in names_and_usernames.items()
+	}
