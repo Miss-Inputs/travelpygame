@@ -2,12 +2,7 @@ from .new_pic_eval import find_if_new_pics_better, load_points_or_rounds
 from .point_set import PointSet, validate_points
 from .random_points import random_point_in_bbox, random_point_in_poly, random_points_in_poly
 from .scoring import main_tpg_scoring, make_leaderboards, score_round
-from .submission_data import (
-	get_all_point_sets,
-	get_submission_occurrences,
-	get_submission_summary,
-	load_or_fetch_submission_summary,
-)
+from .submission_data import convert_cellery_geojson, get_all_official_data, get_all_point_sets
 from .tpg_data import (
 	Round,
 	ScoringOptions,
@@ -37,19 +32,18 @@ __all__ = [
 	'Round',
 	'ScoringOptions',
 	'Submission',
+	'convert_cellery_geojson',
 	'convert_submission_tracker',
 	'find_if_new_pics_better',
 	'geod_distance',
 	'geodataframe_to_csv',
+	'get_all_official_data',
 	'get_all_point_sets',
 	'get_closest_index',
 	'get_closest_point',
 	'get_main_tpg_rounds',
 	'get_main_tpg_rounds_with_path',
-	'get_submission_occurrences',
-	'get_submission_summary',
 	'haversine_distance',
-	'load_or_fetch_submission_summary',
 	'load_points',
 	'load_points_async',
 	'load_points_or_rounds',

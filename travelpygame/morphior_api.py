@@ -1,4 +1,5 @@
-"""Functions to access Morphior's site to get all.geojson, because it seemed best to put them in a different module."""
+"""Functions to access Morphior's site to get all.geojson, because it seemed best to put them in a different module.
+TODO: Discord login required now, so it's possible all of this is outdated."""
 
 from collections.abc import AsyncIterator
 from typing import Annotated, Literal

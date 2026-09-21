@@ -1,258 +1,433 @@
 """Fetches and organises data of all submissions including official and unofficial games, groups into submissions by each user, etc."""
 
-import asyncio
+import json
 import logging
+from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime
+from functools import cached_property
+from io import BytesIO
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from aiohttp import ClientSession
+import geopandas
 from async_lru import alru_cache
 from geopandas import GeoDataFrame
+from pydantic_core import from_json
 from shapely import Point
 from tqdm.auto import tqdm
 
-from .morphior_api import (
-	OfficialSubmissionOccurrence,
-	TrackerID,
-	UnofficialGameID,
-	get_all_players,
-	get_all_trackers,
-	get_unofficial_games,
-	iter_all_submissions,
-)
 from .point_set import PointSet
-from .tpg_api import GameID, PlayerID, get_games, get_rounds
-from .util import load_points_async, output_geodataframe
-from .util.web import user_agent
+from .tpg_api import (
+	GameID,
+	PlayerID,
+	ServerID,
+	get_games,
+	get_players,
+	get_round_submissions,
+	get_rounds,
+)
+from .tpg_api import get_session as get_official_api_session
+from .util import read_geodataframe
 
 if TYPE_CHECKING:
-	from .tpg_data import PlayerName, PlayerUsername
+	from aiohttp import ClientSession
+
+	from .tpg_data import PlayerUsername
 
 logger = logging.getLogger(__name__)
 
 
 @dataclass
 class SubmissionInfo:
-	"""Holds info on a single instance of a submission. Basically a flattened combination of MorphiorPlayer/MorphiorSubmission/*SubmissionOccurrence."""
+	"""Holds info on a single instance of a submission."""
 
-	player_name: 'PlayerName | None'
 	player_username: 'PlayerUsername'
-	"""canonical_name from MorphiorPlayer, which is generally the username, but in the case of deleted accounts etc (which have no username in the main TPG API) this can be equal to the display name. Can be trusted to be a unique key"""
+	"""Can be trusted to be a unique key"""
 	player_id: PlayerID | None
 	point: Point
+	"""Where this submission is."""
 	rounded: tuple[float, float]
+	"""Rounded coordinates for `point` as (lat, lng)."""
 	game_name: str
+	discord_server: str
 	official_game_id: GameID | None = None
+	"""If from the official API, which game ID it is."""
 	round_num: int | None = None
-	"""If official, this is what round it was in"""
+	"""If known, this is what round it was in."""
+	season: int | None = None
+	"""If known, this is what season the round was."""
 	round_start_time: datetime | None = None
-	"""If official, this is when the round started, i.e. submission was submitted after this"""
-	# Could put tracker name or layer name in here, but for now that will do
+	"""If known, this is when the round started, i.e. submission was submitted after this."""
 
 
-def _default_session():
-	# Same as tpg_api.get_session but eh, just in case I randomly decide to make it different in the future
-	return ClientSession(headers={'User-Agent': user_agent})
+@dataclass
+class RoundInfo:
+	game_name: str
+	season: int | None
+	round_num: int | None
+	target: Point
+	official_game_id: int | None = None
+	start_time: datetime | None = None
+	"""If known"""
 
 
-async def get_game_names(
-	session: ClientSession | None = None, *, forbid_extra: bool = False
-) -> tuple[dict[GameID, str], dict[UnofficialGameID, str], dict[TrackerID, str]]:
-	"""Returns mapping of tracker ID -> game name as well, since unofficial_game_id in UnofficialSubmissionOccurrence can be None."""
+# These are sort of duplicating tpg_data Submission/RoundInfo, oh well, different purpose
+
+
+@dataclass
+class GroupedSubmission:
+	"""A unique instance of a location by one player and how often it has been submitted by that player, etc.
+	Probably needs a better name.
+	"""
+
+	player: 'PlayerUsername'
+	"""Player name/username, can be assumed to be unique."""
+	point: Point
+	"""Where this submission is (WGS84). The exact value can be anywhere out of the instances of this submission as per rounding."""
+	rounded: tuple[float, float]
+	"""Rounded coordinates as (lat, lng)."""
+	count: int
+	"""Number of times this has been known to be submitted."""
+	earliest_known: datetime | None
+	"""Earliest round start time that this has been known to have been submitted after."""
+	latest_known: datetime | None
+	"""Latest round start time that this has been known to have been submitted during."""
+	game_names: set[str]
+	"""Names of all games that this has been known to be submitted to."""
+
+
+def _group_player_submissions(
+	player_name: 'PlayerUsername', sub_infos: list[SubmissionInfo]
+) -> list[GroupedSubmission]:
+	by_rounded_coords: defaultdict[tuple[float, float], list[SubmissionInfo]] = defaultdict(list)
+	for sub_info in sub_infos:
+		by_rounded_coords[sub_info.rounded].append(sub_info)
+
+	subs = []
+
+	for rounded_coords, sub_instances in by_rounded_coords.items():
+		point = sub_instances[0].point
+		# We could try and get the most detailed coordinate, but that's not really necessary
+		all_dates = [sub.round_start_time for sub in sub_instances if sub.round_start_time]
+		earliest = min(all_dates) if all_dates else None
+		latest = max(all_dates) if all_dates else None
+		game_names = {sub.game_name for sub in sub_instances}
+
+		subs.append(
+			GroupedSubmission(
+				player_name, point, rounded_coords, len(sub_instances), earliest, latest, game_names
+			)
+		)
+
+	return subs
+
+
+def group_submissions(sub_infos: list[SubmissionInfo]) -> list[GroupedSubmission]:
+	sub_info_by_player: defaultdict[PlayerUsername, list[SubmissionInfo]] = defaultdict(list)
+	for sub_info in sub_infos:
+		sub_info_by_player[sub_info.player_username].append(sub_info)
+
+	subs = []
+	for player, player_subs in sub_info_by_player.items():
+		subs += _group_player_submissions(player, player_subs)
+	return subs
+
+
+@dataclass
+class AllSubmissionData:
+	"""Stores submission info and round info as separate things."""
+
+	# Mainly the round info is just here because the Cellery tracker export has that data so why not
+
+	submissions: list[SubmissionInfo]
+	"""All submissions known to exist."""
+	rounds: list[RoundInfo]
+	"""All rounds known to exist."""
+
+	@property
+	def grouped_submissions(self) -> list[GroupedSubmission]:
+		return group_submissions(self.submissions)
+
+	# could have some other utility methods in this class I guess
+
+
+def player_submissions_to_point_set(name: str, submissions: list[GroupedSubmission]) -> PointSet:
+	"""Converts a list of one player's known submissions to a PointSet."""
+	# TODO: Other fanciness, maybe do a little reverse geocoding
+	gdf = GeoDataFrame(submissions, geometry='point', crs='wgs84')
+	return PointSet(gdf, name)
+
+
+def _group_by_player(
+	subs: list[GroupedSubmission],
+) -> dict['PlayerUsername', list[GroupedSubmission]]:
+	per_player: defaultdict[PlayerUsername, list[GroupedSubmission]] = defaultdict(list)
+	for sub in subs:
+		per_player[sub.player].append(sub)
+	return per_player
+
+
+def get_all_point_sets(
+	submissions: list[GroupedSubmission] | dict['PlayerUsername', list[GroupedSubmission]],
+	minimum_datetime: datetime | None = None,
+	minimum_count: int | None = None,
+) -> list[PointSet]:
+	"""
+	Converts all SubmissionPoints to point sets for each player.
+	Arguments:
+		submissions: List of all known unique submission points, or dict of player -> submissions per player.
+		minimum_datetime: Only include players that have been known to be active since at least this date.
+	"""
+	by_player = _group_by_player(submissions) if isinstance(submissions, list) else submissions
+	point_sets = []
+	for player, subs in by_player.items():
+		if minimum_datetime:
+			dates = [sub.earliest_known for sub in subs if sub.earliest_known]
+			if not dates or max(dates) < minimum_datetime:
+				continue
+		if minimum_count and len(subs) < minimum_count:
+			continue
+		point_sets.append(player_submissions_to_point_set(player, subs))
+	return point_sets
+
+
+def _deserialize_gdf(gdf: GeoDataFrame) -> list[GroupedSubmission]:
+	rows = gdf.to_dict('records')
+	subs = []
+	for row in rows:
+		# TODO: Validate everything, probably
+		rounded_lat = row['rounded_lat']
+		rounded_lng = row['rounded_lng']
+		earliest_known = (
+			datetime.fromisoformat(row['earliest_known']) if row['earliest_known'] else None
+		)
+		latest_known = datetime.fromisoformat(row['latest_known']) if row['latest_known'] else None
+		game_names = set(from_json(row['game_names']))
+		subs.append(
+			GroupedSubmission(
+				row['player'],
+				row['geometry'],
+				(rounded_lat, rounded_lng),
+				row['count'],
+				earliest_known,
+				latest_known,
+				game_names,
+			)
+		)
+	return subs
+
+
+def _deserialize_geojson(file: Path | bytes):
+	if isinstance(file, bytes):
+		gdf = geopandas.read_file(BytesIO(file), driver='GeoJSON')
+	else:
+		gdf = geopandas.read_file(file)
+	return _deserialize_gdf(gdf)
+
+
+def _serialize_geojson(subs: list[GroupedSubmission]) -> str:
+	"""Serializes submissions to GeoJSON with no funny data types that don't like to go in GeoJSONs. There might be an easier way to do this, but that'll do"""
+	rows = [
+		{
+			'player': sub.player,
+			'point': sub.point,
+			'rounded_lat': sub.rounded[0],
+			'rounded_lng': sub.rounded[1],
+			'count': sub.count,
+			'earliest_known': sub.earliest_known.isoformat() if sub.earliest_known else None,
+			'latest_known': sub.latest_known.isoformat() if sub.latest_known else None,
+			'game_names': json.dumps(list(sub.game_names)),
+		}
+		for sub in subs
+	]
+	gdf = GeoDataFrame(rows, geometry='point', crs='wgs84')
+	return gdf.to_json(indent='\t', ensure_ascii=False)
+
+
+class SubmissionSummary:
+	def __init__(self, submissions: list[GroupedSubmission]):
+		self.submissions = submissions
+
+	@classmethod
+	def from_file(cls, path: Path):
+		return _deserialize_geojson(path)
+
+	def save_to_file(self, path: Path):
+		geojson = _serialize_geojson(self.submissions)
+		return path.write_text(geojson, 'utf-8')
+
+	@cached_property
+	def per_player(self) -> dict['PlayerUsername', list[GroupedSubmission]]:
+		return _group_by_player(self.submissions)
+
+
+# TODO: Function to create AllSubmissionData from tpg_data classes (list of Round etc)
+# TODO: We probably want a simplified version of this stuff for get_submission_summary to avoid the intermediate step of looking at occurrence details like game name et
+
+SERVER_NAMES: dict[ServerID, str] = {'730647011497607220': 'CG', '851583874768044052': 'US'}
+"""Official TPG API /games just has the Discord server IDs, so just convert them here for consistency"""
+
+
+async def get_all_official_data(
+	rounding: int | None = 6,
+	session: 'ClientSession | None' = None,
+	*,
+	forbid_extra: bool = False,
+	disable_tqdm: bool = False,
+) -> AllSubmissionData:
+	"""Gets AllSubmissionData from official TPG API (hence, does not include unofficial spinoffs)."""
+	# This is kind of duplicating a bit from main_tpg_import for now, but eh…
 	if session is None:
-		async with _default_session() as sesh:
-			return await get_game_names(sesh, forbid_extra=forbid_extra)
+		async with get_official_api_session() as sesh:
+			return await get_all_official_data(
+				rounding, sesh, forbid_extra=forbid_extra, disable_tqdm=disable_tqdm
+			)
 
-	official = await get_games(session, forbid_extra=forbid_extra)
-	unofficial = await get_unofficial_games(session, forbid_extra=forbid_extra)
-	trackers = await get_all_trackers(None, session, forbid_extra=forbid_extra)
+	round_infos = []
+	submissions = []
 
-	official_names = {game.id: game.name for game in official}
-	# For unofficial games we are going to go through the CGcord ones first and disambiguate anything from other servers
-	spinoff_names = {game.id: game.name for game in unofficial if game.discord_server == 'CG'}
-	tracker_names = {
-		tracker.tracker_id: tracker.game_name
-		for tracker in trackers
-		if tracker.discord_server == 'CG'
+	player_names = {
+		player.discord_id: player.username or player.discord_id
+		for player in await get_players(session)
 	}
 
-	for spinoff in unofficial:
-		if spinoff.discord_server == 'CG':
-			# already did you
-			continue
-		name = spinoff.name
-		if name in spinoff_names.values():
-			name = f'{name} ({spinoff.discord_server})'
-		spinoff_names[spinoff.id] = name
-	for tracker in trackers:
-		if tracker.discord_server == 'CG':
-			continue
-		name = tracker.game_name
-		if name in tracker_names.values():
-			name = f'{name} ({tracker.discord_server})'
-		tracker_names[tracker.tracker_id] = name
+	games = await get_games(session, forbid_extra=forbid_extra)
+	for game in tqdm(
+		games, desc='Getting official TPG API rounds', unit='game', disable=disable_tqdm
+	):
+		server_name = SERVER_NAMES.get(game.server_id, f'<{game.server_id}>')
+		rounds = await get_rounds(game.id, session, forbid_extra=forbid_extra)
+		for r in tqdm(
+			rounds,
+			desc=f'Getting round submissions for {game.name}',
+			unit='round',
+			disable=disable_tqdm,
+		):
+			# Should this be rounded? Shrug
+			target = Point(r.longitude, r.latitude)
+			round_infos.append(
+				RoundInfo(game.name, r.season, r.number, target, game.id, r.start_timestamp)
+			)
+			subs = await get_round_submissions(
+				r.number, game.id, session, forbid_extra=forbid_extra
+			)
+			for sub in subs:
+				# TODO: Use player name but ensure it is disambiguated, which maybe we have ways of doing
+				player_name = player_names.get(sub.discord_id, f'<{sub.discord_id}>')
+				point = Point(sub.longitude, sub.latitude)
+				lat = round(sub.latitude, rounding) if rounding is not None else sub.latitude
+				lng = round(sub.longitude, rounding) if rounding is not None else sub.longitude
+				submissions.append(
+					SubmissionInfo(
+						player_name,
+						sub.discord_id,
+						point,
+						(lat, lng),
+						game.name,
+						server_name,
+						game.id,
+						r.number,
+						r.season,
+						r.start_timestamp,
+					)
+				)
 
-	return official_names, spinoff_names, tracker_names
+	return AllSubmissionData(submissions, round_infos)
 
 
 @alru_cache
 async def get_round_starts(
-	game_id: GameID, session: ClientSession | None = None, *, forbid_extra: bool = False
+	game_id: GameID, session: 'ClientSession | None' = None, *, forbid_extra: bool = False
 ) -> dict[int, datetime]:
 	rounds = await get_rounds(game_id, session, forbid_extra=forbid_extra)
 	return {r.number: r.start_timestamp for r in rounds if r.start_timestamp is not None}
 
 
-async def get_round_start(
-	game_id: GameID,
-	round_num: int,
-	session: ClientSession | None = None,
-	*,
-	forbid_extra: bool = False,
-):
-	start_times = await get_round_starts(game_id, session, forbid_extra=forbid_extra)
-	return start_times.get(round_num)
-
-
-async def get_submission_occurrences(
-	session: ClientSession | None = None, rounding: int | None = 6, *, forbid_extra: bool = False
-) -> list[SubmissionInfo]:
-	"""Returns all occurrences of all submissions.
-	Arguments:
-		session: aiohttp session, creates a new one if None.
-		rounding: Round coordinates to this amount of decimal places (or leave the coordinates exactly as is if None) for the `rounded` field, as the submissions data may have duplicate submissions that are counted as separate because they differ in precision. Note that the default is 6 digits as 1-e7 decimal degrees is around 1 or two centimetres (depending on the axis etc) and so is unlikely to matter for this use case, and
-
-	Returns:
-		List of SubmissionInfo
-	"""
-	if session is None:
-		async with _default_session() as sesh:
-			return await get_submission_occurrences(sesh, rounding, forbid_extra=forbid_extra)
-
-	official_names, spinoff_names, tracker_names = await get_game_names(
-		session, forbid_extra=forbid_extra
-	)
-	players = await get_all_players(session, forbid_extra=forbid_extra)
-	players_by_id = {player.discord_id: player for player in players}
-
-	subs: list[SubmissionInfo] = []
-	with tqdm(desc='Getting all submissions', unit='submission') as t:
-		async for sub in iter_all_submissions(session, forbid_extra=forbid_extra):
-			t.update()
-			player = players_by_id.get(sub.discord_id)
-			if not player:
-				logger.warning(
-					'Player %s did not exist, which is strange, the submission at %s, %s will be ignored',
-					sub.discord_id,
-					sub.lat,
-					sub.lon,
-				)
-				continue
-			point = Point(sub.lon, sub.lat)
-			lat = round(sub.lat, rounding) if rounding is not None else sub.lat
-			lon = round(sub.lon, rounding) if rounding is not None else sub.lon
-			for occ in sub.occurrences:
-				if isinstance(occ, OfficialSubmissionOccurrence):
-					game_name = official_names.get(occ.game_id, f'<unknown game {occ.game_id}>')
-					subs.append(
-						SubmissionInfo(
-							player.name,
-							player.canonical_name,
-							player.discord_id,
-							point,
-							(lat, lon),
-							game_name,
-							occ.game_id,
-							occ.round,
-							await get_round_start(
-								occ.game_id, occ.round, session, forbid_extra=forbid_extra
-							),
-						)
-					)
-				else:
-					if occ.unofficial_game_id:
-						game_name = spinoff_names.get(
-							occ.unofficial_game_id, f'<unknown spinoff {occ.unofficial_game_id}>'
-						)
-					else:
-						game_name = tracker_names.get(
-							occ.tracker_id, f'<unknown tracker {occ.tracker_id}>'
-						)
-					subs.append(
-						SubmissionInfo(
-							player.name,
-							player.canonical_name,
-							player.discord_id,
-							point,
-							(lat, lon),
-							game_name,
-						)
-					)
-
-	return subs
-
-
-# TODO: We probably want a simplified version of this for get_submission_summary to avoid the intermediate step of looking at occurrence details like game name etc
-
-
-async def get_submission_summary(
-	session: ClientSession | None = None, rounding: int | None = 6, *, forbid_extra: bool = False
-) -> GeoDataFrame:
-	"""Gets all points that have been submitted somewhere at some point, and the player name and count of occurrences, etc."""
-	sub_occurrences = await get_submission_occurrences(session, rounding, forbid_extra=forbid_extra)
-	gdf = GeoDataFrame(sub_occurrences, geometry='point', crs='wgs84')
-
-	rows = []
-	for player, player_group in gdf.groupby('player_username', sort=False):
-		# We have to group by player name anyway since it doesn't make sense to group together different people's submissions of the same place
-		for _, group in player_group.groupby('rounded', sort=False):
-			first = group.iloc[0]
-			row = {
-				'username': player,
-				'player_name': first['player_name'],
-				'player_id': first['player_id'],
-				'count': group.index.size,
-				'geometry': first['point'],
-			}
-			rows.append(row)
-
-	return GeoDataFrame(rows, crs='wgs84')
-
-
-# TODO: We may end up wanting a get_submission_detailed_summary that aggregates things like the list of spinoffs a point has been submitted to, the first main round, etc, maybe little a reverse geocode as a treat, or to put some of those details in the current summary
-
-
-async def load_or_fetch_submission_summary(
-	path: Path | None = None,
-	session: ClientSession | None = None,
+async def convert_cellery_geojson(
+	path: Path,
 	rounding: int | None = 6,
+	tpg_api_session: 'ClientSession | None' = None,
 	*,
+	get_tpg_api_info: bool = True,
 	forbid_extra: bool = False,
-	error_if_not_found: bool = False,
-) -> GeoDataFrame:
-	"""Loads the previously saved output from `get_submission_summary` if the path is provided and exists, or fetches it if not."""
-	if path:
+) -> AllSubmissionData:
+	"""Gets AllSubmissionData from Cellery's tools site (https://tpg.odder.dev/tracker/settings)."""
+	if get_tpg_api_info and tpg_api_session is None:
+		async with get_official_api_session() as sesh:
+			return await convert_cellery_geojson(
+				path, rounding, sesh, get_tpg_api_info=True, forbid_extra=forbid_extra
+			)
+
+	gdf = read_geodataframe(path)
+	rows = gdf.to_dict(orient='records')
+
+	if get_tpg_api_info:
+		official_games = await get_games(tpg_api_session, forbid_extra=forbid_extra)
+		game_ids = {game.name: game.id for game in official_games}
+		start_times = {
+			game.id: await get_round_starts(game.id, tpg_api_session, forbid_extra=forbid_extra)
+			for game in official_games
+		}
+	else:
+		game_ids = {}
+		start_times = {}
+
+	submissions = []
+	rounds = []
+	for row in rows:
+		# TODO: Could get player_id from TPG API, but don't really need that info for anything
+		row_type = row['type']
+		assert isinstance(row_type, str), f'row_type in {path} was {type(row_type)} and not str'
+		point = row['geometry']
+		if not isinstance(point, Point):
+			raise TypeError(
+				f'TPG export {path} contained a {type(point)} instead of Point: {point!r}'
+			)
+		lat = round(point.y, rounding) if rounding is not None else point.y
+		lng = round(point.x, rounding) if rounding is not None else point.x
+
+		game_name = row['game']
+		assert isinstance(game_name, str), f'game_name in {path} was {type(game_name)} and not str'
+		round_name = row['round']
 		try:
-			return await load_points_async(path)
-		except FileNotFoundError:
-			if error_if_not_found:
-				raise
+			round_num = int(round_name)
+		except ValueError:
+			# That can happen, but we'll just ignore it
+			# TODO: Do something with non-numeric rounds (e.g. "GE1" in TPG Tournament)
+			round_num = None
+		season_name = row['season']
+		try:
+			season = int(season_name)
+		except ValueError:
+			# TODO: Do something with non-numeric seasons (e.g. "All" in Losers TUILET)
+			season = None
 
-	summary = await get_submission_summary(session, rounding, forbid_extra=forbid_extra)
-	if path:
-		await asyncio.to_thread(output_geodataframe, summary, path)
-	return summary
+		if row_type == 'guess':
+			server_name = row['discord_server']
+			game_id = game_ids.get(game_name) if server_name == 'Official TPG API' else None
+			round_start_time = None
+			if game_id is not None:
+				round_starts = start_times.get(game_id, {})
+				round_start_time = round_starts.get(round_num)
 
+			sub = SubmissionInfo(
+				row['username'],
+				None,
+				point,
+				(lat, lng),
+				game_name,
+				server_name,
+				game_id,
+				round_num,
+				season,
+				round_start_time,
+			)
+			submissions.append(sub)
+		elif row_type == 'answer':
+			# Round target rows don't have the source/Discord server, so we can't say for sure that they are from the TPG API, so like ehhh
+			rounds.append(RoundInfo(game_name, season, round_num, point))
+		else:
+			raise ValueError(f'Unknown row type {row_type} found in {path}')
 
-def get_all_point_sets(submission_summary: GeoDataFrame, player_col_name: str | int = 'username'):
-	point_sets: list[PointSet] = []
-	for name, group in submission_summary.groupby(player_col_name):
-		# TODO: Option to set an index col (for the name/description of each point), but we don't have that info yet, it would just be if a custom submission_summary is provided
-		name = str(name)
-		data = group.drop(columns=[player_col_name, 'player_name', 'player_id'], errors='ignore')
-		data = data.rename_axis(index=name)
-		assert isinstance(data, GeoDataFrame), f'data was {type(data)}, expected GeoDataFrame'
-		point_sets.append(PointSet(data, name))
-	return point_sets
+	return AllSubmissionData(submissions, rounds)
