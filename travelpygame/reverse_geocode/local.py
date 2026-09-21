@@ -38,7 +38,7 @@ def reverse_geocode_regions(
 def reverse_geocode_regions_multiple(
 	points: 'GeoDataFrame | GeoSeries',
 	regions: 'GeoDataFrame',
-	col_names: list[Hashable] | None,
+	col_names: list[str] | None,
 	*,
 	allow_multiple: bool = False,
 ) -> pandas.DataFrame:
@@ -56,12 +56,16 @@ def reverse_geocode_regions_multiple(
 	indices = regions.sindex.query(points, 'within', output_format='indices')
 	data = {}
 	for point_i, region_i in zip(*indices, strict=True):
+		# point_i and region_i are int64s here
+		point_i = point_i.item()
 		assert isinstance(point_i, int), f'point_i was {type(point_i)} instead of int, uh oh'
 		point_index = points.index[point_i]
-		region_rows: pandas.DataFrame = regions.iloc[region_i]
+		region_row: pandas.Series = regions.iloc[region_i]
 		if col_names:
-			region_rows = region_rows[col_names]
-		data[point_index] = (
-			region_rows.to_dict('list') if allow_multiple else region_rows.iloc[0].to_dict()
-		)
+			region_row = region_row.loc[col_names]
+		# TODO: What happens with allow_multiple here? I've missed something, whoops, maybe region_i is not an int if there's multiple
+		data[point_index] = region_row.to_dict()
+		# data[point_index] = (
+		# 	region_rows.to_dict('list') if allow_multiple else region_rows.iloc[0].to_dict()
+		# )
 	return pandas.DataFrame.from_dict(data, 'index').align(points, join='right', axis='index')[0]
