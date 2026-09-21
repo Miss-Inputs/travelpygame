@@ -1,4 +1,5 @@
 """Stuff that requires an optimization (in the mathematical sense)."""
+
 import logging
 from collections.abc import Collection, Sequence
 from typing import TYPE_CHECKING
@@ -17,6 +18,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 def _diagonal_dist(poly: 'BaseGeometry') -> float:
 	minx, miny, maxx, maxy = poly.bounds
 	return geod_distance((miny, minx), (maxy, maxx))
@@ -29,7 +31,7 @@ def _maximin_objective(x: numpy.ndarray, *args) -> float:
 
 	lng, lat = x
 	distances = get_distances((lat, lng), points, use_haversine=use_haversine)
-	min_dist = distances.min()
+	min_dist = distances.min().item()
 
 	if polygon and not shapely.intersects_xy(polygon, lng, lat):
 		# This doesn't always work as expected with multipolygons, like if polygon is a country with an offshore island, the optimizer tends to end up in the mainland and never the island even when it's visibly further away
@@ -48,7 +50,7 @@ def _geo_median_objective(x: numpy.ndarray, *args):
 	return distances.sum()
 
 
-def _find_furthest_point_single(points: Collection[shapely.Point]):
+def _find_furthest_point_single(points: Collection[shapely.Point]) -> tuple[shapely.Point, float]:
 	point = next(iter(points))
 	antipode = get_geometry_antipode(point)
 	# Can't be bothered remembering the _exact_ circumference of the earth, maybe I should to speed things up whoops (I guess it's probably different for haversine vs geodetic?)

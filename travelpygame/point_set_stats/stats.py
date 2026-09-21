@@ -146,7 +146,7 @@ def get_point_set_stats(
 	)
 	total_bbox_dists = bbox_dists.sum(axis='columns')
 	closest_index_to_corners = total_bbox_dists.idxmax()
-	closest_to_bbox_dist = total_bbox_dists.loc[closest_index_to_corners]
+	closest_to_bbox_dist = total_bbox_dists.loc[closest_index_to_corners]  # ty: ignore[invalid-argument-type]
 	closest_to_corners = d[closest_index_to_corners]
 	nwmost, nw_dist = point_set.get_closest_index(nw)
 	nemost, ne_dist = point_set.get_closest_index(ne)

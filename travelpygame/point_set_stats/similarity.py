@@ -35,7 +35,7 @@ def _point_set_distance_inner(
 		raise TypeError(f'point_a was {type(point_a)}, expected Point')
 	distances = points_b.get_all_distances(point_a)
 	min_index = distances.idxmin()
-	min_dist = distances[min_index]
+	min_dist = distances[min_index]  # ty: ignore[invalid-argument-type]
 	if method == Distance1ToManyMethod.Mean:
 		score = distances.mean()
 	elif method == Distance1ToManyMethod.Median:

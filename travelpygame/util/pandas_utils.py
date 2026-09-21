@@ -153,7 +153,7 @@ def detect_cat_cols(df: 'pandas.DataFrame', frac_threshold: int = 2):
 
 
 def summarize_counter[T](counter: Counter[T]) -> pandas.DataFrame:
-	counts = pandas.Series(counter)
+	counts: pandas.Series[int] = pandas.Series(counter)  # ty: ignore[no-matching-overload] #nah this is allowed surely
 	percents = counts / counter.total()
 	percents_formatted = percents.map('{:%}'.format)
 	df = pandas.DataFrame({'count': counts, 'percent': percents_formatted})

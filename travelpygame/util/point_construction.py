@@ -27,7 +27,7 @@ def _add_points(
 	else:
 		points = shapely.points(coords)
 		assert isinstance(points, numpy.ndarray), f'points is {type(points)}'
-		d.update((f'{name} {i}', point) for i, point in enumerate(points, 1))
+		d.update((f'{name} {i}', point) for i, point in enumerate(points, 1))  # ty: ignore[no-matching-overload] #point is always a shapely.Point but it doesn't know that
 
 
 def _drop_duplicates(gs: geopandas.GeoSeries) -> geopandas.GeoSeries:
