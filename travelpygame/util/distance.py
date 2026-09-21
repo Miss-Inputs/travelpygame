@@ -157,24 +157,23 @@ def get_distances(
 		1D numpy array of shape (len(points), ) containing distances in metres."""
 	if isinstance(points, numpy.ndarray) and points.dtype.kind == 'f':
 		if points.shape[0] == 2:
-			lngs, lats = points  # ty: ignore[not-iterable] #yes it is, it's just typed weirdly
+			lngs, lats = points
 		elif points.shape[1] == 2:
-			lngs, lats = points.T  # ty: ignore[not-iterable] #yes it is, it's just typed weirdly
+			lngs, lats = points.T
 		else:
 			raise ValueError(
 				'If points is a numpy array of floats, it must be 2D, wih one axis having size 2'
 			)
 	else:
 		if isinstance(points, Collection) and not isinstance(points, (Sequence, GeoSeries)):
-			points = list(points)  # ty:ignore[invalid-assignment] #it is narrowing the return type of list(points) to list[object], which I guess technically could happen if it was passed in as a numpy array of not-floats
-		lngs, lats = shapely.get_coordinates(points).T  # ty:ignore[invalid-argument-type] #points should have been narrowed to list[Point] instead of Collection[Point]
+			points = list(points)
+		lngs, lats = shapely.get_coordinates(points).T
 	dist_func = haversine_distance if use_haversine else geod_distances
 	if isinstance(target_point, shapely.Point):
 		target_lat = target_point.y
 		target_lng = target_point.x
 	else:
 		target_lat, target_lng = target_point
-	# ty:ignore[invalid-argument-type, unresolved-attribute, no-matching-overload] #huh??
 	return dist_func(
 		numpy.repeat(target_lat, lats.size), numpy.repeat(target_lng, lngs.size), lats, lngs
 	)
@@ -196,7 +195,7 @@ def get_closest_point(
 	if isinstance(points, Sequence):
 		distances = get_distances(target_point, points, use_haversine=use_haversine)
 		index = distances.argmin().item()
-		return points[index], distances[index]  # ty:ignore[invalid-return-type] #points should be narrowed to Sequence[shapely.Point] here, and so points[index] should be shapely.Point, but it ends up being object
+		return points[index], distances[index]
 
 	generator = (
 		(

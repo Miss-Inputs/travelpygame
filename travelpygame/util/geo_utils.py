@@ -112,7 +112,7 @@ def get_antipodes(lats: 'numpy.ndarray', lngs: 'numpy.ndarray'):
 def get_point_antipodes(points: Iterable[shapely.Point] | GeoSeries):
 	"""Vectorized version of get_geometry_antipodes"""
 	if isinstance(points, (numpy.ndarray, list, tuple, GeoSeries)):
-		lngs, lats = shapely.get_coordinates(points).T  # ty:ignore[invalid-argument-type] #not narrowing properly
+		lngs, lats = shapely.get_coordinates(points).T
 
 	else:
 		lats_tuple, lngs_tuple = zip(((point.y, point.x) for point in points), strict=True)
@@ -166,8 +166,8 @@ def circular_mean_xy(x: Iterable[float], y: Iterable[float]) -> tuple[float, flo
 		x = numpy.asarray(x)
 	if not isinstance(y, (numpy.ndarray)):
 		y = numpy.asarray(y)
-	x = numpy.radians(x + 180)  # ty:ignore[unsupported-operator] #hrm it seems to think x can contain tuples
-	y = numpy.radians((y + 90) * 2)  # ty:ignore[unsupported-operator] #same here with y
+	x = numpy.radians(x + 180)
+	y = numpy.radians((y + 90) * 2)
 	mean_x = numpy.degrees(circular_mean(x))
 	mean_y = numpy.degrees(circular_mean(y))
 	mean_x = (mean_x % 360) - 180
