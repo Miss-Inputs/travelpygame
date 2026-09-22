@@ -3,6 +3,7 @@
 import json
 import logging
 from collections import defaultdict
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from functools import cached_property
@@ -335,9 +336,10 @@ async def get_round_starts(
 	return {r.number: r.start_timestamp for r in rounds if r.start_timestamp is not None}
 
 
-async def convert_cellery_geojson(
+async def convert_cellery_geojson(  # ruff: ignore[complex-structure] #meh
 	path: Path,
 	rounding: int | None = 6,
+	aliases: Mapping['PlayerName', 'PlayerName'] | None = None,
 	tpg_api_session: 'ClientSession | None' = None,
 	*,
 	get_tpg_api_info: bool = True,
@@ -347,9 +349,10 @@ async def convert_cellery_geojson(
 	if get_tpg_api_info and tpg_api_session is None:
 		async with get_official_api_session() as sesh:
 			return await convert_cellery_geojson(
-				path, rounding, sesh, get_tpg_api_info=True, forbid_extra=forbid_extra
+				path, rounding, aliases, sesh, get_tpg_api_info=True, forbid_extra=forbid_extra
 			)
 
+	aliases = aliases or {}
 	gdf = read_geodataframe(path)
 	rows = gdf.to_dict(orient='records')
 
@@ -402,20 +405,24 @@ async def convert_cellery_geojson(
 				round_starts = start_times.get(game_id, {})
 				round_start_time = round_starts.get(round_num)
 			name = normalize_player_name(row['username'])
+			name = aliases.get(name, name)
+			if name == '<invalid>':
+				continue
 
-			sub = SubmissionInfo(
-				name,
-				None,
-				point,
-				(lat, lng),
-				game_name,
-				server_name,
-				game_id,
-				round_num,
-				season,
-				round_start_time,
+			submissions.append(
+				SubmissionInfo(
+					name,
+					None,
+					point,
+					(lat, lng),
+					game_name,
+					server_name,
+					game_id,
+					round_num,
+					season,
+					round_start_time,
+				)
 			)
-			submissions.append(sub)
 		elif row_type == 'answer':
 			# Round target rows don't have the source/Discord server, so we can't say for sure that they are from the TPG API, so like ehhh
 			rounds.append(RoundInfo(game_name, season, round_num, point))
