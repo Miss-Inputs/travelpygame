@@ -31,6 +31,23 @@ class DistanceMethod(StrEnum):
 	Manhattan = auto()
 
 
+EQUATORIAL_RADIUS_M = wgs84_geod.a  # 6_378_137.0
+"""Earth radius at the equator in metres from WGS84."""
+POLAR_RADIUS_M = wgs84_geod.b  # 6_356_752.314245179…
+"""Earth radius from equator to poles in metres from WGS84."""
+AVERAGE_RADIUS_M = (EQUATORIAL_RADIUS_M + POLAR_RADIUS_M) / 2
+"""Average radius of the Earth in metres."""
+_1deg_rad: float = numpy.radians(1).item()
+LATITUDE_DEG_M = AVERAGE_RADIUS_M * _1deg_rad
+"""Length of 1 degree of latitude in metres (longitude is variable, 111320 at the equator to 0m at the poles) (technically this is also variable but we will just say average earth radius * 1 degree in radians)."""
+EQ_LONGITUDE_DEG_M = EQUATORIAL_RADIUS_M * _1deg_rad
+"""Width of 1 degree longitude at the equator in metres (radius at equator * 1 degree in radians)."""
+AVERAGE_LONGITUDE_DEG_M = EQ_LONGITUDE_DEG_M * (2 / numpy.pi)
+"""Average width of longitudes in metres (equator width * average value of cosine curve)."""
+AVERAGE_DEG_M: float = numpy.sqrt(((LATITUDE_DEG_M**2) + (AVERAGE_LONGITUDE_DEG_M**2)) / 2).item()
+"""Average size of 1 degree in either direction in metres, which is of course nonsensical geographically speaking, as it pretends the Earth is a square."""
+
+
 @overload
 def geod_distance_and_bearing(
 	lat1: float, lng1: float, lat2: float, lng2: float, *, radians: bool = False
@@ -131,7 +148,7 @@ def haversine_distance(
 		ndarray (float) of distances in metres
 
 	"""
-	r = 6371_000
+	r = AVERAGE_RADIUS_M
 	if not radians:
 		lat1 = numpy.radians(lat1)
 		lat2 = numpy.radians(lat2)
@@ -198,9 +215,9 @@ def _vectorized_distance(
 	if method == DistanceMethod.Haversine:
 		return haversine_distance(lat1, lng1, lat2, lng2)
 	if method == DistanceMethod.Euclidean:
-		return euclidean_distance(lng1, lat1, lng2, lat2)
+		return euclidean_distance(lng1, lat1, lng2, lat2) * AVERAGE_DEG_M
 	if method == DistanceMethod.Manhattan:
-		return manhattan_distance(lng1, lat1, lng2, lat2)
+		return manhattan_distance(lng1, lat1, lng2, lat2) * AVERAGE_DEG_M
 	raise ValueError(f'Distance method {method} not understood')
 
 
@@ -212,7 +229,7 @@ def get_distances(
 	"""Finds the distances from all points in `points` to `target_point`, in the original order of points. By default, uses geodetic distance. If `target_point` is a tuple, it should be lat, lng. If points is a numpy array of floats, it must be 2D, wih one axis having size 2, noting that it expects lng/x first and not the other way around.
 
 	Returns:
-		1D numpy array of shape (len(points), ) containing distances in metres (or meaningless units if using DistanceMethod.Euclidean)."""
+		1D numpy array of shape (len(points), ) containing distances in metres."""
 	if isinstance(points, numpy.ndarray) and points.dtype.kind == 'f':
 		if points.shape[0] == 2:
 			lngs, lats = points
@@ -264,9 +281,9 @@ def get_distance(
 	if distance_method == DistanceMethod.Haversine:
 		return haversine_distance(lat1, lng1, lat2, lng2)
 	if distance_method == DistanceMethod.Euclidean:
-		return euclidean_distance(lng1, lat1, lng2, lat2)
+		return euclidean_distance(lng1, lat1, lng2, lat2) * AVERAGE_DEG_M
 	if distance_method == DistanceMethod.Manhattan:
-		return manhattan_distance(lng1, lat1, lng2, lat2)
+		return manhattan_distance(lng1, lat1, lng2, lat2) * AVERAGE_DEG_M
 	raise ValueError(f'Distance method {distance_method} not understood')
 
 
@@ -327,7 +344,7 @@ def get_closest_points(
 	"""Finds the closest point(s) and the distance to them in a collection of points. Uses geodetic distance by default.
 
 	Returns:
-		Points, distance in metres (or meaningless units if distance_method = Euclidean)
+		Points, distance in metres
 	"""
 	if isinstance(points, shapely.MultiPoint):
 		points = list(points.geoms)
