@@ -218,7 +218,7 @@ def get_extreme_corner_points(
 	return _drop_duplicates(gs)
 
 
-def get_extreme_corners_of_point_set(gs: geopandas.GeoSeries):
+def get_extreme_corners_of_point_set(gs: geopandas.GeoSeries) -> tuple[Any, Any, Any, Any]:
 	"""Special case where get_extreme_corner_vertices would otherwise be used, but just gets the indexes of the points in `gs` that are closest to corners of the bounding box.
 
 	Returns:

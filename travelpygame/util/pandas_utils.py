@@ -138,7 +138,7 @@ def try_auto_set_index[T: 'pandas.DataFrame'](
 	return df
 
 
-def detect_cat_cols(df: 'pandas.DataFrame', frac_threshold: int = 2):
+def detect_cat_cols(df: 'pandas.DataFrame', frac_threshold: int = 2) -> list[Any]:
 	"""Quick and dirty way to detect which columns in a pandas DataFrame are probably categories, and therefore are useful groupings for stats etc. There are better ways to do this but if the user doesn't provide a list of category columns manually, this will do."""
 	dtypes = df.dtypes
 	cats = dtypes[dtypes == 'category'].index

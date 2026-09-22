@@ -101,7 +101,7 @@ def _geodataframe_to_normal_df(
 	*,
 	include_z: bool = False,
 	insert_before: bool = True,
-):
+) -> pandas.DataFrame:
 	only_has_points = all(isinstance(geom, Point) for geom in gdf.geometry.dropna())
 	df = gdf.drop(columns=gdf.active_geometry_name)
 	if only_has_points:

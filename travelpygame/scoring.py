@@ -3,13 +3,16 @@ from collections import Counter, defaultdict
 from collections.abc import Collection, Iterable, Mapping
 from enum import IntEnum
 from operator import attrgetter
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy
 import pandas
 
 from .tpg_data import PlayerName, Round, ScoringOptions, Submission
 from .util import DistanceMethod, get_distances
+
+if TYPE_CHECKING:
+	from .util.distance import FloatNDArray
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +28,7 @@ main_tpg_scoring = ScoringOptions(
 
 def _get_submission_distances_to_other(
 	sub: Submission, others: Iterable[Submission], distance_method: DistanceMethod
-):
+) -> 'FloatNDArray':
 	"""Array of all distances from other to sub. We don't really need distance_method since we are not needing to be consistent with anything but we are just checking for ties but the option is there"""
 	return get_distances(
 		(sub.latitude, sub.longitude), [other.point for other in others], distance_method
@@ -85,7 +88,7 @@ def score_distances(
 	is_5k: pandas.Series,
 	is_antipode_5k: pandas.Series | None,
 	options: ScoringOptions,
-):
+) -> pandas.Series[float]:
 	# TODO: This might need to be refactored into separate functions for scoring with main TPG rules, scoring with AusTPG-style rules (with variable parameters), etc
 	n = distances.size
 
@@ -122,7 +125,7 @@ def score_distances(
 	return scores if options.round_to is None else scores.round(options.round_to)
 
 
-def _ensure_float(n: Any):
+def _ensure_float(n: Any) -> float:
 	return n if isinstance(n, float) else n.item()
 
 
@@ -190,7 +193,7 @@ class Medal(IntEnum):
 	Bronze = 1
 
 
-def _count_medals(medals: Mapping[str, Collection[Medal]]):
+def _count_medals(medals: Mapping[str, Collection[Medal]]) -> pandas.DataFrame:
 	"""Tallies medals from podium placements.
 
 	Arguments:
@@ -218,7 +221,7 @@ def _count_medals(medals: Mapping[str, Collection[Medal]]):
 	return df.sort_values('Medal Score', ascending=False)
 
 
-def _add_totals(df: pandas.DataFrame, *, ascending: bool):
+def _add_totals(df: pandas.DataFrame, *, ascending: bool) -> pandas.DataFrame:
 	total = df.sum(axis='columns')
 	mean = df.mean(axis='columns', skipna=True)
 	stdev = df.std(axis='columns', skipna=True)
@@ -228,7 +231,9 @@ def _add_totals(df: pandas.DataFrame, *, ascending: bool):
 	return df.sort_values('Total', ascending=ascending)
 
 
-def make_leaderboards(rounds: list['Round']):
+def make_leaderboards(
+	rounds: list['Round'],
+) -> tuple[pandas.DataFrame, pandas.DataFrame, pandas.DataFrame]:
 	"""Returns tuple of (points leaderboard, distance leaderboard, medal leaderboard)"""
 	# name: {player: score}
 	points: defaultdict[str, dict[str, float]] = defaultdict(dict)
