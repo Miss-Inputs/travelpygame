@@ -369,7 +369,7 @@ async def convert_cellery_geojson(  # ruff: ignore[complex-structure] #meh
 
 	submissions = []
 	rounds = []
-	for row in rows:
+	for row in tqdm(rows, desc='Converting rows in TPG export', unit='row'):
 		# TODO: Could get player_id from TPG API, but don't really need that info for anything
 		row_type = row['type']
 		assert isinstance(row_type, str), f'row_type in {path} was {type(row_type)} and not str'
