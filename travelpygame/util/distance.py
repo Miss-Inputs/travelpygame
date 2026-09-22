@@ -28,6 +28,7 @@ class DistanceMethod(StrEnum):
 	Geodetic = auto()
 	Haversine = auto()
 	Euclidean = auto()
+	Manhattan = auto()
 
 
 @overload
@@ -169,10 +170,27 @@ def euclidean_distance(
 	return numpy.hypot(x1 - x2, y1 - y2)
 
 
+@overload
+def manhattan_distance(x1: float, y1: float, x2: float, y2: float) -> float: ...
+@overload
+def manhattan_distance(
+	x1: FloatNDArray, y1: FloatNDArray, x2: FloatNDArray, y2: FloatNDArray
+) -> FloatNDArray: ...
+def manhattan_distance(
+	x1: float | FloatNDArray,
+	y1: float | FloatNDArray,
+	x2: float | FloatNDArray,
+	y2: float | FloatNDArray,
+) -> float | FloatNDArray:
+	"""Vectorized distance function for non-geographical coordinates."""
+	return numpy.abs(x1 - x2) + numpy.abs(y1 - y2)
+
+
 dist_funcs = {
 	DistanceMethod.Geodetic: geod_distances,
 	DistanceMethod.Haversine: haversine_distance,
 	DistanceMethod.Euclidean: euclidean_distance,
+	DistanceMethod.Manhattan: manhattan_distance,
 }
 
 
@@ -235,6 +253,8 @@ def get_distance(
 	if distance_method == DistanceMethod.Haversine:
 		return haversine_distance(lat1, lng1, lat2, lng2)
 	if distance_method == DistanceMethod.Euclidean:
+		return euclidean_distance(lng1, lat1, lng2, lat2)
+	if distance_method == DistanceMethod.Manhattan:
 		return euclidean_distance(lng1, lat1, lng2, lat2)
 	raise ValueError(f'Distance method {distance_method} not understood')
 
