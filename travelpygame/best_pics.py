@@ -1,4 +1,5 @@
 """Functions related to getting a best pic within a point set to some point, maybe this could be merged into somewhere else."""
+
 from collections.abc import Collection, Hashable
 from typing import Any
 
@@ -8,17 +9,17 @@ from geopandas import GeoDataFrame, GeoSeries
 from shapely import Point
 
 from .point_set import PointSet
-from .util.distance import get_closest_index, get_furthest_index
+from .util.distance import DistanceMethod, get_closest_index, get_furthest_index
 
-PointCollection = Collection[Point] | numpy.ndarray | GeoSeries | GeoDataFrame
+type PointCollection = Collection[Point] | numpy.ndarray | GeoSeries | GeoDataFrame
 """Seems a bit odd for this to be defined here of all places? Oh well"""
 
 
 def get_best_pic(
 	pics: PointCollection | PointSet,
 	target: 'Point',
+	distance_method: DistanceMethod = DistanceMethod.Geodetic,
 	*,
-	use_haversine: bool = False,
 	reverse: bool = False,
 ) -> tuple[Any, float]:
 	"""Finds the best pic among a collection of pics. If pics is a GeoDataFrame/GeoSeries or PointSet, returns the index in that object and not the numeric index.
@@ -38,9 +39,9 @@ def get_best_pic(
 			pics = list(pics)
 		coords = shapely.get_coordinates(pics)
 	index, distance = (
-		get_furthest_index(target, coords, use_haversine=use_haversine)
+		get_furthest_index(target, coords, distance_method)
 		if reverse
-		else get_closest_index(target, coords, use_haversine=use_haversine)
+		else get_closest_index(target, coords, distance_method)
 	)
 
 	if isinstance(pics, GeoSeries):
@@ -51,7 +52,9 @@ def get_best_pic(
 
 
 def get_worst_point(
-	pics: PointCollection, targets: PointCollection, *, use_haversine: bool = False
+	pics: PointCollection,
+	targets: PointCollection,
+	distance_method: DistanceMethod = DistanceMethod.Geodetic,
 ) -> tuple[Hashable, float, Hashable]:
 	"""Finds the worst case distance in a group of targets, and the index of that target within `targets`. If `pics` or `targets` are a GeoDataFrame/GeoSeries, returns the index in that object and not the numeric index."""
 	if isinstance(pics, GeoDataFrame):
@@ -75,7 +78,7 @@ def get_worst_point(
 	for target_index, target in items:
 		if not isinstance(target, Point):
 			raise TypeError(f'Target at {target_index} was {type(target)}, expected Point')
-		pic_index, dist = get_closest_index(target, coords, use_haversine=use_haversine)
+		pic_index, dist = get_closest_index(target, coords, distance_method)
 		if dist > worst_dist:
 			worst_dist = dist
 			worst_target = target_index

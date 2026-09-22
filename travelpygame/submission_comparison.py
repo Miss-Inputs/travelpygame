@@ -10,9 +10,7 @@ from typing import TYPE_CHECKING
 
 import numpy
 
-from travelpygame.util.distance import geod_distance, haversine_distance
-
-from .util import get_distances
+from .util import DistanceMethod, get_distance, get_distances
 
 if TYPE_CHECKING:
 	from shapely import Point
@@ -68,13 +66,16 @@ class SubmissionDifference:
 
 
 def find_all_next_highest_placings(
-	round_: 'Round', *, by_score: bool = False, use_haversine: bool = True
+	round_: 'Round',
+	distance_method: DistanceMethod = DistanceMethod.Geodetic,
+	*,
+	by_score: bool = False,
 ) -> Iterator[SubmissionDifference]:
 	if not round_.is_scored:
 		if by_score:
 			raise ValueError('Round is not scored, so you will want to do that yourself')
 		points = numpy.asarray([(sub.longitude, sub.latitude) for sub in round_.submissions])
-		a = get_distances((round_.latitude, round_.longitude), points, use_haversine=use_haversine)
+		a = get_distances((round_.latitude, round_.longitude), points, distance_method)
 		subs_and_indices = sorted(enumerate(round_.submissions), key=lambda i_sub: a[i_sub[0]])
 		sorted_subs = [sub for _, sub in subs_and_indices]
 	else:
@@ -105,13 +106,17 @@ def find_all_next_highest_placings(
 
 
 def find_next_highest_placing(
-	round_: 'Round', submission: 'Submission', *, by_score: bool = False, use_haversine: bool = True
+	round_: 'Round',
+	submission: 'Submission',
+	distance_method: DistanceMethod = DistanceMethod.Geodetic,
+	*,
+	by_score: bool = False,
 ) -> SubmissionDifference | None:
 	if not round_.is_scored:
 		if by_score:
 			raise ValueError('Round is not scored, so you will want to do that yourself')
 		points = numpy.asarray([(sub.longitude, sub.latitude) for sub in round_.submissions])
-		a = get_distances((round_.latitude, round_.longitude), points, use_haversine=use_haversine)
+		a = get_distances((round_.latitude, round_.longitude), points, distance_method)
 		for i in range(len(round_.submissions)):
 			round_.submissions[i].distance = a[i]
 		sorted_subs = sorted(round_.submissions, key=attrgetter('distance'))
@@ -147,19 +152,25 @@ def find_next_highest_placing(
 
 
 def compare_player_in_round(
-	round_: 'Round', name: str, *, by_score: bool = False, use_haversine: bool = True
+	round_: 'Round',
+	name: str,
+	distance_method: DistanceMethod = DistanceMethod.Geodetic,
+	*,
+	by_score: bool = False,
 ) -> SubmissionDifference | None:
 	player_submission = round_.find_player(name)
 	if not player_submission:
 		# We did not submit for this round, and that's okay
 		return None
-	return find_next_highest_placing(
-		round_, player_submission, use_haversine=use_haversine, by_score=by_score
-	)
+	return find_next_highest_placing(round_, player_submission, distance_method, by_score=by_score)
 
 
 def find_all_closest_placings(
-	rounds: list['Round'], name: str | None, *, by_score: bool = False, use_haversine: bool = True
+	rounds: list['Round'],
+	name: str | None,
+	distance_method: DistanceMethod = DistanceMethod.Geodetic,
+	*,
+	by_score: bool = False,
 ) -> Iterator[SubmissionDifference]:
 	for round_ in rounds:
 		if name:
@@ -168,14 +179,12 @@ def find_all_closest_placings(
 				# We did not submit for this round, and that's okay
 				continue
 			diff = find_next_highest_placing(
-				round_, player_submission, use_haversine=use_haversine, by_score=by_score
+				round_, player_submission, distance_method, by_score=by_score
 			)
 			if diff:
 				yield diff
 		else:
-			yield from find_all_next_highest_placings(
-				round_, by_score=by_score, use_haversine=use_haversine
-			)
+			yield from find_all_next_highest_placings(round_, distance_method, by_score=by_score)
 
 
 def find_new_next_highest_distance(
@@ -185,24 +194,19 @@ def find_new_next_highest_distance(
 	new_distance: float | None = None,
 	new_rank: int | None = None,
 	new_pic_desc: str | None = None,
-	*,
-	use_haversine: bool,
+	distance_method: DistanceMethod = DistanceMethod.Geodetic,
 ) -> SubmissionDifference | None:
 	"""Finds a new SubmissionDifference for a new point/distance in a round. Ignores score entirely. Returns None if new_point would mean the player wins the round (and hence hs no next highest/rival). If new_distance/new_rival are None, they will be recalculated automatically."""
 	if not round_.is_scored:
 		points = numpy.asarray([(sub.longitude, sub.latitude) for sub in round_.submissions])
-		a = get_distances((round_.latitude, round_.longitude), points, use_haversine=use_haversine)
+		a = get_distances((round_.latitude, round_.longitude), points, distance_method)
 		subs_and_indices = sorted(enumerate(round_.submissions), key=lambda i_sub: a[i_sub[0]])
 		sorted_subs = [sub for _, sub in subs_and_indices]
 	else:
 		sorted_subs = sorted(round_.submissions, key=attrgetter('distance'))
 	distances = [sub.distance for sub in round_.submissions if sub.distance is not None]
 	if new_distance is None:
-		new_distance = (
-			haversine_distance(round_.latitude, round_.longitude, new_point.y, new_point.x)
-			if use_haversine
-			else geod_distance((round_.latitude, round_.longitude), new_point)
-		)
+		new_distance = get_distance(round_.target, new_point)
 	if new_rank is None:
 		new_rank = bisect(distances, new_distance) + 1
 	if new_rank == 1:

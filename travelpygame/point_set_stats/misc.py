@@ -7,6 +7,7 @@ import shapely
 from scipy.cluster.hierarchy import fcluster, linkage
 from tqdm.auto import tqdm
 
+from travelpygame.util import DistanceMethod
 from travelpygame.util.distance import geod_distance, get_distances
 from travelpygame.util.geom_utils import get_bbox_corners
 
@@ -46,16 +47,19 @@ def find_clusters(
 
 
 def corner_distance(
-	point: shapely.Point | tuple[float, float], *corners: shapely.Point, use_haversine: bool = False
+	point: shapely.Point | tuple[float, float],
+	*corners: shapely.Point,
+	distance_method: DistanceMethod = DistanceMethod.Geodetic,
 ) -> float:
 	"""Sum of distances from `point` to each corner in `corners`, intended to be the corner points of a bounding box."""
-	distances = get_distances(point, corners, use_haversine=use_haversine)
+	distances = get_distances(point, corners, distance_method)
 	return distances.sum().item()
 
 
 def closest_to_corners(
-	points: 'GeoSeries | Collection[shapely.Point]', *, use_haversine: bool = False
+	points: 'GeoSeries | Collection[shapely.Point]',
+	distance_method: DistanceMethod = DistanceMethod.Geodetic,
 ) -> shapely.Point:
 	"""Returns the point in `points` that is closest to all corners of the bounding box of all of `points`, usually used to roughly determine a centre of the points."""
 	corners = get_bbox_corners(points)
-	return min(points, key=partial(corner_distance, *corners, use_haversine=use_haversine))
+	return min(points, key=partial(corner_distance, *corners, distance_method=distance_method))

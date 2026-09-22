@@ -9,7 +9,7 @@ import numpy
 import pandas
 
 from .tpg_data import PlayerName, Round, ScoringOptions, Submission
-from .util.distance import geod_distance_and_bearing, get_distances, haversine_distance
+from .util import DistanceMethod, get_distances
 
 logger = logging.getLogger(__name__)
 
@@ -24,13 +24,11 @@ main_tpg_scoring = ScoringOptions(
 
 
 def _get_submission_distances_to_other(
-	sub: Submission, others: Iterable[Submission], *, use_haversine: bool = False
+	sub: Submission, others: Iterable[Submission], distance_method: DistanceMethod
 ):
-	"""Array of all distances from other to sub. We don't really need haversine since we are not needing to be consistent with anything but we are just checking for ties but the option is there"""
+	"""Array of all distances from other to sub. We don't really need distance_method since we are not needing to be consistent with anything but we are just checking for ties but the option is there"""
 	return get_distances(
-		(sub.latitude, sub.longitude),
-		[other.point for other in others],
-		use_haversine=use_haversine,
+		(sub.latitude, sub.longitude), [other.point for other in others], distance_method
 	)
 
 
@@ -74,7 +72,7 @@ def detect_likely_ties(submissions: list[Submission], threshold: float = 100.0) 
 		group = {name: subs_by_name[name] for name in (leader, *tie_group)}
 		for sub_name, sub in group.items():
 			others = [s for s in group.values() if s is not sub]
-			distances = _get_submission_distances_to_other(sub, others)
+			distances = _get_submission_distances_to_other(sub, others, DistanceMethod.Geodetic)
 			close = distances <= threshold
 			if close.any():
 				real_tie_groups.add(sub_name)
@@ -145,9 +143,8 @@ def process_ties(scores: pandas.Series, is_tie: pandas.Series):
 def score_round(
 	round_: 'Round',
 	options: ScoringOptions,
+	distance_method: DistanceMethod = DistanceMethod.Geodetic,
 	fivek_threshold: float | None = 0.1,
-	*,
-	use_haversine: bool = True,
 ) -> 'Round':
 	n = len(round_.submissions)
 	if n == 0:
@@ -156,15 +153,9 @@ def score_round(
 
 	lats = subs['latitude'].to_numpy()
 	lngs = subs['longitude'].to_numpy()
-	target_lat = numpy.repeat(round_.latitude, n)
-	target_lng = numpy.repeat(round_.longitude, n)
 	if subs['distance'].hasnans:
 		# We don't have to recalc distance if we somehow have distance (but not score) for every submission, but if any of them don't then we need to recalc anyway
-		if use_haversine:
-			distances = haversine_distance(lats, lngs, target_lat, target_lng)
-			# TODO: Option to calc geod distance/bearing anyway, just for funsies
-		else:
-			distances, _bearings = geod_distance_and_bearing(target_lat, target_lng, lats, lngs)
+		distances = get_distances(round_.target, numpy.vstack((lngs, lats)), distance_method)
 		subs['distance'] = distances
 
 	if fivek_threshold is not None:

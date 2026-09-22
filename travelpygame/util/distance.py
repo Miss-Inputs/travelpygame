@@ -2,8 +2,8 @@
 
 from collections import defaultdict
 from collections.abc import Collection, Hashable, Sequence
+from enum import StrEnum, auto
 from itertools import combinations
-from operator import itemgetter
 from typing import overload
 
 import numpy
@@ -20,6 +20,14 @@ wgs84_geod = pyproj.Geod(ellps='WGS84')
 type FloatNDArray = NDArray[numpy.floating]
 type FloatListlike = Sequence[float] | FloatNDArray | pandas.Series
 """Accepted input types to pyproj.Geod.inv, although other stuff would probably work, this is just what works as a type hint."""
+
+
+class DistanceMethod(StrEnum):
+	"""Accepted distance calculation methods (not always all of them are supported by every function)"""
+
+	Geodetic = auto()
+	Haversine = auto()
+	Euclidean = auto()
 
 
 @overload
@@ -145,16 +153,38 @@ def geod_distances(
 	return geod_distance_and_bearing(lat, lng, target_lat, target_lng)[0]
 
 
+@overload
+def euclidean_distance(x1: float, y1: float, x2: float, y2: float) -> float: ...
+@overload
+def euclidean_distance(
+	x1: FloatNDArray, y1: FloatNDArray, x2: FloatNDArray, y2: FloatNDArray
+) -> FloatNDArray: ...
+def euclidean_distance(
+	x1: float | FloatNDArray,
+	y1: float | FloatNDArray,
+	x2: float | FloatNDArray,
+	y2: float | FloatNDArray,
+) -> float | FloatNDArray:
+	"""Vectorized distance function for non-geographical coordinates."""
+	return numpy.hypot(x1 - x2, y1 - y2)
+
+
+dist_funcs = {
+	DistanceMethod.Geodetic: geod_distances,
+	DistanceMethod.Haversine: haversine_distance,
+	DistanceMethod.Euclidean: euclidean_distance,
+}
+
+
 def get_distances(
 	target_point: shapely.Point | tuple[float, float],
 	points: Collection[shapely.Point] | shapely.MultiPoint | numpy.ndarray | GeoSeries,
-	*,
-	use_haversine: bool = False,
+	distance_method: DistanceMethod = DistanceMethod.Geodetic,
 ) -> FloatNDArray:
-	"""Finds the distances from all points in `points` to `target_point`, in the original order of points. By default, uses geodetic distance. If `target_point` is a tuple, it should be lat, lng.
+	"""Finds the distances from all points in `points` to `target_point`, in the original order of points. By default, uses geodetic distance. If `target_point` is a tuple, it should be lat, lng. If points is a numpy array of floats, it must be 2D, wih one axis having size 2, noting that it expects lng/x first and not the other way around.
 
 	Returns:
-		1D numpy array of shape (len(points), ) containing distances in metres."""
+		1D numpy array of shape (len(points), ) containing distances in metres (or meaningless units if using DistanceMethod.Euclidean)."""
 	if isinstance(points, numpy.ndarray) and points.dtype.kind == 'f':
 		if points.shape[0] == 2:
 			lngs, lats = points
@@ -168,7 +198,10 @@ def get_distances(
 		if isinstance(points, Collection) and not isinstance(points, (Sequence, GeoSeries)):
 			points = list(points)
 		lngs, lats = shapely.get_coordinates(points).T
-	dist_func = haversine_distance if use_haversine else geod_distances
+
+	if distance_method not in dist_funcs:
+		raise ValueError(f'Distance method {distance_method} not understood')
+	dist_func = dist_funcs[distance_method]
 	if isinstance(target_point, shapely.Point):
 		target_lat = target_point.y
 		target_lng = target_point.x
@@ -179,11 +212,37 @@ def get_distances(
 	)
 
 
+def get_distance(
+	point1: shapely.Point | tuple[float, float],
+	point2: shapely.Point | tuple[float, float],
+	distance_method: DistanceMethod = DistanceMethod.Geodetic,
+) -> float:
+	"""Scalar version of get_distances for completeness."""
+	if distance_method == DistanceMethod.Geodetic:
+		return geod_distance(point1, point2)
+
+	if isinstance(point1, shapely.Point):
+		lat1 = point1.y
+		lng1 = point1.x
+	else:
+		lat1, lng1 = point1
+	if isinstance(point2, shapely.Point):
+		lat2 = point2.y
+		lng2 = point2.x
+	else:
+		lat2, lng2 = point2
+
+	if distance_method == DistanceMethod.Haversine:
+		return haversine_distance(lat1, lng1, lat2, lng2)
+	if distance_method == DistanceMethod.Euclidean:
+		return euclidean_distance(lng1, lat1, lng2, lat2)
+	raise ValueError(f'Distance method {distance_method} not understood')
+
+
 def get_closest_point(
 	target_point: shapely.Point,
 	points: Collection[shapely.Point] | shapely.MultiPoint,
-	*,
-	use_haversine: bool = False,
+	distance_method: DistanceMethod = DistanceMethod.Geodetic,
 ) -> tuple[shapely.Point, float]:
 	"""Finds the closest point and the distance to it in a collection of points. Uses geodetic distance by default. If multiple points are equally close, arbitrarily returns one of them.
 
@@ -192,35 +251,24 @@ def get_closest_point(
 	"""
 	if isinstance(points, shapely.MultiPoint):
 		points = list(points.geoms)
-	if isinstance(points, Sequence):
-		distances = get_distances(target_point, points, use_haversine=use_haversine)
-		index = distances.argmin().item()
-		return points[index], distances[index]
-
-	generator = (
-		(
-			p,
-			haversine_distance(target_point.y, target_point.x, p.y, p.x)
-			if use_haversine
-			else geod_distance(target_point, p),
-		)
-		for p in points
-	)
-	return min(generator, key=itemgetter(1))
+	if not isinstance(points, Sequence):
+		points = list(points)
+	distances = get_distances(target_point, points, distance_method)
+	index = distances.argmin().item()
+	return points[index], distances[index]
 
 
 def get_closest_index(
 	target_point: shapely.Point,
 	points: Collection[shapely.Point] | shapely.MultiPoint | numpy.ndarray,
-	*,
-	use_haversine: bool = False,
+	distance_method: DistanceMethod = DistanceMethod.Geodetic,
 ) -> tuple[int, float]:
 	"""Finds the index of the closest point and the distance to it in a collection of points. Uses geodetic distance by default. If multiple points are equally close, arbitrarily returns the index of one of them.
 
 	Returns:
 		Point, distance in metres
 	"""
-	distances = get_distances(target_point, points, use_haversine=use_haversine)
+	distances = get_distances(target_point, points, distance_method)
 	index = distances.argmin().item()
 	return index, distances[index]
 
@@ -228,15 +276,14 @@ def get_closest_index(
 def get_furthest_index(
 	target_point: shapely.Point,
 	points: Collection[shapely.Point] | shapely.MultiPoint | numpy.ndarray,
-	*,
-	use_haversine: bool = False,
+	distance_method: DistanceMethod = DistanceMethod.Geodetic,
 ) -> tuple[int, float]:
 	"""Finds the index of the furthest point and the distance to it in a collection of points. Uses geodetic distance by default. If multiple points are equally close, arbitrarily returns the index of one of them.
 
 	Returns:
 		Point, distance in metres
 	"""
-	distances = get_distances(target_point, points, use_haversine=use_haversine)
+	distances = get_distances(target_point, points, distance_method)
 	index = distances.argmax().item()
 	return index, distances[index]
 
@@ -244,13 +291,12 @@ def get_furthest_index(
 def get_closest_points(
 	target_point: shapely.Point,
 	points: 'Sequence[shapely.Point] | shapely.MultiPoint | numpy.ndarray',
-	*,
-	use_haversine: bool = False,
+	distance_method: DistanceMethod = DistanceMethod.Geodetic,
 ) -> tuple[list[shapely.Point], float]:
 	"""Finds the closest point(s) and the distance to them in a collection of points. Uses geodetic distance by default.
 
 	Returns:
-		Points, distance in metres
+		Points, distance in metres (or meaningless units if distance_method = Euclidean)
 	"""
 	if isinstance(points, shapely.MultiPoint):
 		points = list(points.geoms)
@@ -258,14 +304,16 @@ def get_closest_points(
 	lngs, lats = shapely.get_coordinates(points).T
 	target_lng = numpy.repeat(target_point.x, n)
 	target_lat = numpy.repeat(target_point.y, n)
-	dist_func = haversine_distance if use_haversine else geod_distances
+	if distance_method not in dist_funcs:
+		raise ValueError(f'Distance method {distance_method} not understood')
+	dist_func = dist_funcs[distance_method]
 	distances = dist_func(target_lat, target_lng, lats, lngs)
 	shortest = distances.min().item()
 	return [point for i, point in enumerate(points) if distances[i] == shortest], shortest
 
 
 def self_cartesian_product_distances(
-	gs: GeoSeries, *, use_haversine: bool = False
+	gs: GeoSeries, distance_method: DistanceMethod = DistanceMethod.Geodetic
 ) -> dict[Hashable, dict[Hashable, float]]:
 	"""Distances from every point in `gs` to every other point. Tries to be as efficient as possible. Probably isn't.
 
@@ -280,7 +328,9 @@ def self_cartesian_product_distances(
 	lats2 = coords[to_indexes, 1]
 	lngs2 = coords[to_indexes, 0]
 
-	dist_func = haversine_distance if use_haversine else geod_distances
+	if distance_method not in dist_funcs:
+		raise ValueError(f'Distance method {distance_method} not understood')
+	dist_func = dist_funcs[distance_method]
 	half_distances = dist_func(lats, lngs, lats2, lngs2)
 	for i, distance in enumerate(half_distances):
 		from_i = gs.index[from_indexes[i]]
@@ -291,7 +341,7 @@ def self_cartesian_product_distances(
 
 
 def cartesian_product_distances(
-	gs_from: GeoSeries, gs_to: GeoSeries, *, use_haversine: bool = False
+	gs_from: GeoSeries, gs_to: GeoSeries, distance_method: DistanceMethod = DistanceMethod.Geodetic
 ) -> pandas.DataFrame:
 	"""Distances from every point in `gs_from` to every point in `gs_to`. Tries to be as efficient as possible. Probably isn't.
 
@@ -300,7 +350,7 @@ def cartesian_product_distances(
 	Arguments:
 		gs_from: GeoSeries, geometries must be points.
 		gs_to: GeoSeries, geometries must be points.
-		use_haversine: Use haversine instead of geodetic distance, defaults to False.
+		distance_method: DistanceMethod enum that chooses function to calculate distance. Can be geodetic (default), haversine (faster, inaccurate), or Euclidean (should be a tad faster but doesn't return metres and is also inaccurate even if it did, due to the Earth not being flat, but I guess it would work if gs_from/gs_to are not in WGS84).
 
 	Returns:
 		DataFrame with the index of `gs_from`, each row containing distances (in metres) to each point in `gs_to` as columns.
@@ -313,7 +363,9 @@ def cartesian_product_distances(
 	lngs, lats = numpy.repeat(coords_from, n_to, axis=0).T
 	lngs2, lats2 = numpy.tile(coords_to, (n_from, 1)).T
 
-	dist_func = haversine_distance if use_haversine else geod_distances
+	if distance_method not in dist_funcs:
+		raise ValueError(f'Distance method {distance_method} not understood')
+	dist_func = dist_funcs[distance_method]
 	distances = dist_func(lats, lngs, lats2, lngs2)
 	return pandas.DataFrame(
 		distances.reshape(n_from, n_to), index=gs_from.index, columns=gs_to.index
@@ -324,17 +376,18 @@ def get_point_to_polygon_distance(
 	point: shapely.Point | tuple[float, float],
 	polygon: shapely.Polygon | shapely.MultiPolygon,
 	densification: float | None = 0.1,
-	*,
-	use_haversine: bool = False,
+	distance_method: DistanceMethod = DistanceMethod.Geodetic,
 ) -> tuple[tuple[shapely.Point, float], tuple[shapely.Point, float]]:
 	"""Returns roughly the closest and furthest point anywhere on `polygon` from `point`.
 	Currently just looks at polygon vertices, so doesn't actually give the closest result possible, though the `densification` argument is there to segmentize the polygon boundaries into segments so you get more vertices. Either way this will be slow.
 	May produce unexpected results if `point` is inside a hole inside `polygon` or something like that, for now.
 	"""
+	# Note that mathematically, the furthest point will be one of the vertices (apparently), so at least that part's easier
+	# We still need to calcuate it this same way though… creating a second inner function just to not call argmin() seems pointless
 	if densification:
 		polygon = shapely.segmentize(polygon, densification)
 	vertices = get_poly_vertices(polygon)
-	distances = get_distances(point, vertices, use_haversine=use_haversine)
+	distances = get_distances(point, vertices, distance_method)
 	closest_index = distances.argmin().item()
 	closest = vertices[closest_index]
 	closest_dist = distances[closest_index].item()

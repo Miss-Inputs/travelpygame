@@ -17,7 +17,7 @@ from tqdm.auto import tqdm
 from .best_pics import get_best_pic
 from .scoring import score_round
 from .tpg_data import Round, ScoringOptions, Submission
-from .util import format_point, format_xy
+from .util import DistanceMethod, format_point, format_xy
 
 if TYPE_CHECKING:
 	from .point_set import PointSet
@@ -46,7 +46,7 @@ class Simulation:
 	"""Point sets for each player that will be simulated."""
 	scoring: ScoringOptions
 	strategy: SimulatedStrategy = SimulatedStrategy.Closest
-	use_haversine: bool = True
+	distance_method: DistanceMethod = DistanceMethod.Geodetic
 	use_tqdm: bool = True
 	# Probably want a random seed parameter in here? Though the rounds have already been rolled, it would only be used for SimulatedStrategy.Random, which is just there for the sake of it really
 
@@ -60,7 +60,7 @@ class Simulation:
 			best_index, distance = get_best_pic(
 				point_set,
 				target,
-				use_haversine=self.use_haversine,
+				self.distance_method,
 				reverse=self.strategy == SimulatedStrategy.Furthest,
 			)
 			desc = best_index if isinstance(best_index, str) else None
@@ -86,7 +86,7 @@ class Simulation:
 		r = Round(
 			name=name, number=number, latitude=target.y, longitude=target.x, submissions=submissions
 		)
-		return score_round(r, self.scoring, use_haversine=self.use_haversine)
+		return score_round(r, self.scoring, self.distance_method)
 
 	def simulate_rounds(self) -> list[Round]:
 		items = self.rounds.items()

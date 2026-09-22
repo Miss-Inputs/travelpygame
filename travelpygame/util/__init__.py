@@ -6,13 +6,14 @@ from .crs import (
 	get_transform_methods,
 )
 from .distance import (
+	DistanceMethod,
 	geod_distance,
 	geod_distance_and_bearing,
 	get_closest_index,
 	get_closest_point,
 	get_closest_points,
+	get_distance,
 	get_distances,
-	haversine_distance,
 	wgs84_geod,
 )
 from .formatting import (
@@ -85,6 +86,7 @@ from .point_construction import (
 )
 
 __all__ = [
+	'DistanceMethod',
 	'KMLError',
 	'Placemark',
 	'SubmissionTracker',
@@ -119,6 +121,7 @@ __all__ = [
 	'get_closest_index',
 	'get_closest_point',
 	'get_closest_points',
+	'get_distance',
 	'get_distances',
 	'get_extreme_corner_points',
 	'get_extreme_corners_of_point_set',
@@ -134,7 +137,6 @@ __all__ = [
 	'get_projected_crs',
 	'get_total_bounds',
 	'get_transform_methods',
-	'haversine_distance',
 	'load_points',
 	'load_points_async',
 	'maybe_set_index_name_col',

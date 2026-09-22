@@ -10,6 +10,7 @@ from geopandas import GeoSeries
 from scipy.optimize import differential_evolution
 from tqdm.auto import tqdm
 
+from travelpygame.util import DistanceMethod, get_distance
 from travelpygame.util.distance import geod_distance, get_distances
 from travelpygame.util.geo_utils import get_geometry_antipode
 
@@ -26,11 +27,11 @@ def _diagonal_dist(poly: 'BaseGeometry') -> float:
 
 def _maximin_objective(x: numpy.ndarray, *args) -> float:
 	points = args[0]
-	use_haversine = args[1] if len(args) > 1 else False
+	distance_method: DistanceMethod = args[1] if len(args) > 1 else DistanceMethod.Geodetic
 	polygon: BaseGeometry | None = args[2] if len(args) > 2 else None
 
 	lng, lat = x
-	distances = get_distances((lat, lng), points, use_haversine=use_haversine)
+	distances = get_distances((lat, lng), points, distance_method)
 	min_dist = distances.min().item()
 
 	if polygon and not shapely.intersects_xy(polygon, lng, lat):
@@ -43,18 +44,20 @@ def _maximin_objective(x: numpy.ndarray, *args) -> float:
 def _geo_median_objective(x: numpy.ndarray, *args):
 	"""Sum of distances to points."""
 	points: Sequence[shapely.Point] | GeoSeries = args[0]
-	use_haversine = args[1] if len(args) > 1 else False
+	distance_method: DistanceMethod = args[1] if len(args) > 1 else DistanceMethod.Geodetic
 
 	lng, lat = x
-	distances = get_distances((lat, lng), points, use_haversine=use_haversine)
+	distances = get_distances((lat, lng), points, distance_method)
 	return distances.sum()
 
 
-def _find_furthest_point_single(points: Collection[shapely.Point]) -> tuple[shapely.Point, float]:
+def _find_furthest_point_single(
+	points: Collection[shapely.Point], distance_method: DistanceMethod
+) -> tuple[shapely.Point, float]:
 	point = next(iter(points))
 	antipode = get_geometry_antipode(point)
 	# Can't be bothered remembering the _exact_ circumference of the earth, maybe I should to speed things up whoops (I guess it's probably different for haversine vs geodetic?)
-	return antipode, geod_distance(point, antipode)
+	return antipode, get_distance(point, antipode, distance_method)
 
 
 def find_furthest_point(
@@ -64,12 +67,12 @@ def find_furthest_point(
 	max_iter: int = 1_000,
 	pop_size: int = 20,
 	tolerance: float = 1e-7,
+	distance_method: DistanceMethod = DistanceMethod.Geodetic,
 	*,
 	use_tqdm: bool = True,
-	use_haversine: bool = False,
 ) -> tuple[shapely.Point, float]:
 	if len(points) == 1 and not polygon:
-		return _find_furthest_point_single(points)
+		return _find_furthest_point_single(points, distance_method)
 	# TODO: Should be able to trivially speed up len(points) == 2 by getting the midpoint of the two antipodes, unless I'm wrong
 	if polygon:
 		minx, miny, maxx, maxy = polygon.bounds
@@ -91,7 +94,7 @@ def find_furthest_point(
 			_maximin_objective,
 			bounds,
 			popsize=pop_size,
-			args=(points, use_haversine, polygon),
+			args=(points, distance_method, polygon),
 			x0=numpy.asarray([initial.x, initial.y]) if initial else None,
 			maxiter=max_iter,
 			mutation=(0.5, 1.5),
@@ -115,9 +118,9 @@ def find_geometric_median(
 	max_iter: int = 1_000,
 	pop_size: int = 20,
 	tolerance: float = 1e-7,
+	distance_method: DistanceMethod = DistanceMethod.Geodetic,
 	*,
 	use_tqdm: bool = True,
-	use_haversine: bool = False,
 ) -> shapely.Point:
 	if len(points) == 1:
 		if isinstance(points, GeoSeries):
@@ -145,7 +148,7 @@ def find_geometric_median(
 			_geo_median_objective,
 			bounds,
 			popsize=pop_size,
-			args=(points, use_haversine),
+			args=(points, distance_method),
 			x0=numpy.asarray([initial.x, initial.y]) if initial else None,
 			maxiter=max_iter,
 			mutation=(0.5, 1.5),

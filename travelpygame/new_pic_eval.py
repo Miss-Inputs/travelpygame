@@ -14,6 +14,8 @@ from geopandas import GeoDataFrame, GeoSeries
 from shapely import Point
 from tqdm.auto import tqdm
 
+from travelpygame.util import DistanceMethod
+
 from .submission_comparison import compare_player_in_round
 from .tpg_data import Round, load_rounds
 from .util.distance import get_distances
@@ -73,8 +75,7 @@ def find_if_new_pics_better(
 	points: 'PointSet',
 	new_points: 'PointSet',
 	targets: 'PointCollection',
-	*,
-	use_haversine: bool = False,
+	distance_method: DistanceMethod = DistanceMethod.Geodetic,
 ) -> pandas.DataFrame:
 	if isinstance(targets, GeoDataFrame):
 		targets = targets.geometry
@@ -89,10 +90,8 @@ def find_if_new_pics_better(
 				)
 				continue
 			t.set_postfix(index=index)
-			point, distance = points.get_closest_index(target, use_haversine=use_haversine)
-			new_point, new_distance = new_points.get_closest_index(
-				target, use_haversine=use_haversine
-			)
+			point, distance = points.get_closest_index(target, distance_method)
+			new_point, new_distance = new_points.get_closest_index(target, distance_method)
 			result = {
 				'current_best': point,
 				'current_distance': distance,
@@ -107,8 +106,8 @@ def find_if_new_pics_better(
 def _find_current_bests(
 	points: 'PointSet',
 	targets: 'PointSet',
+	distance_method: DistanceMethod,
 	*,
-	use_haversine: bool,
 	use_tqdm: bool,
 	set_postfix: bool,
 ) -> pandas.Series:
@@ -119,9 +118,7 @@ def _find_current_bests(
 		for index, target in t:
 			if set_postfix:
 				t.set_postfix(target=index)
-			current_distances_d[index] = points.get_closest_index(
-				target, use_haversine=use_haversine
-			)[1]
+			current_distances_d[index] = points.get_closest_index(target, distance_method)[1]
 	return pandas.Series(current_distances_d)
 
 
@@ -130,14 +127,14 @@ def find_new_pics_better_individually(
 	new_points: 'PointSet',
 	targets: 'PointSet',
 	improvement_threshold: float | None = None,
+	distance_method: DistanceMethod = DistanceMethod.Geodetic,
 	*,
-	use_haversine: bool = False,
 	use_tqdm: bool = True,
 	set_postfix: bool = False,
 ) -> pandas.DataFrame:
 	"""For each new point in `new_points`: Finds how often that new point was closer to a point in `targets` compared to `points`, and the total reduction in distance. This function's name kinda sucks, and it is also a tad convoluted and its purpose is also a bit murky, so it may be rewritten mercilessly or removed in future."""
 	current_distances = _find_current_bests(
-		points, targets, use_haversine=use_haversine, use_tqdm=use_tqdm, set_postfix=set_postfix
+		points, targets, distance_method, use_tqdm=use_tqdm, set_postfix=set_postfix
 	)
 	current_distances = current_distances.reindex(index=targets.points.index)
 
@@ -151,9 +148,7 @@ def find_new_pics_better_individually(
 		for index, new_point in t:
 			if set_postfix:
 				t.set_postfix(new_point=index)
-			new_distances = get_distances(
-				new_point, targets.coord_array, use_haversine=use_haversine
-			)
+			new_distances = get_distances(new_point, targets.coord_array, distance_method)
 			is_better = new_distances < current_distances
 			if not is_better.any():
 				continue
@@ -204,8 +199,7 @@ def find_improvements_in_round(
 	player_name: str,
 	new_pics: 'PointCollection',
 	distance_required: float | None = None,
-	*,
-	use_haversine: bool = True,
+	distance_method: DistanceMethod = DistanceMethod.Geodetic,
 ) -> Iterator[DistanceImprovement]:
 	"""Finds where a previous round could have been improved by at least one place if any of new_pics was available at the time.
 
@@ -214,17 +208,16 @@ def find_improvements_in_round(
 		player_name: Player's name, if None, results might not entirely make sense (it would return something like every time anyone's submission at all gets improved by something in new_pics), but it's technically possible to do that.
 		new_pics: Set of hypothetical new locations to evaluate.
 		distance_required: Only count if it is above this distance.
-		use_haversine: If true, use haversine distance to calculate the distances from new_pics, as well as the existing round distances if it has not been scored, otherwise use WGS84 geodetic distance.
 	"""
 
 	if isinstance(new_pics, GeoDataFrame):
 		new_pics = new_pics.geometry
 	if isinstance(new_pics, Collection) and not isinstance(new_pics, (Sequence, GeoSeries)):
 		new_pics = list(new_pics)
-	submission_diff = compare_player_in_round(round_, player_name, use_haversine=use_haversine)
+	submission_diff = compare_player_in_round(round_, player_name, distance_method)
 	if submission_diff is None:
 		return
-	new_distances = get_distances(submission_diff.target, new_pics, use_haversine=use_haversine)
+	new_distances = get_distances(submission_diff.target, new_pics, distance_method)
 	for i in range(len(new_distances)):
 		new_distance = new_distances[i]
 		if new_distance >= submission_diff.rival_distance:
@@ -251,8 +244,7 @@ def find_improvements_in_rounds(
 	player_name: str,
 	new_pics: 'PointCollection',
 	distance_required: float | None = None,
-	*,
-	use_haversine: bool = True,
+	distance_method: DistanceMethod = DistanceMethod.Geodetic,
 ) -> Iterator[DistanceImprovement]:
 	"""Finds where previous rounds could have been improved by at least one place if any of new_pics was available at the time.
 
@@ -269,7 +261,7 @@ def find_improvements_in_rounds(
 
 	for round_ in rounds:
 		yield from find_improvements_in_round(
-			round_, player_name, new_pics, distance_required, use_haversine=use_haversine
+			round_, player_name, new_pics, distance_required, distance_method
 		)
 
 
