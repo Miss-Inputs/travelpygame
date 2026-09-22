@@ -186,12 +186,22 @@ def manhattan_distance(
 	return numpy.abs(x1 - x2) + numpy.abs(y1 - y2)
 
 
-dist_funcs = {
-	DistanceMethod.Geodetic: geod_distances,
-	DistanceMethod.Haversine: haversine_distance,
-	DistanceMethod.Euclidean: euclidean_distance,
-	DistanceMethod.Manhattan: manhattan_distance,
-}
+def _vectorized_distance(
+	lat1: FloatNDArray,
+	lng1: FloatNDArray,
+	lat2: FloatNDArray,
+	lng2: FloatNDArray,
+	method: DistanceMethod,
+) -> FloatNDArray:
+	if method == DistanceMethod.Geodetic:
+		return geod_distance_and_bearing(lat1, lng1, lat2, lng2)[0]
+	if method == DistanceMethod.Haversine:
+		return haversine_distance(lat1, lng1, lat2, lng2)
+	if method == DistanceMethod.Euclidean:
+		return euclidean_distance(lng1, lat1, lng2, lat2)
+	if method == DistanceMethod.Manhattan:
+		return manhattan_distance(lng1, lat1, lng2, lat2)
+	raise ValueError(f'Distance method {method} not understood')
 
 
 def get_distances(
@@ -217,16 +227,17 @@ def get_distances(
 			points = list(points)
 		lngs, lats = shapely.get_coordinates(points).T
 
-	if distance_method not in dist_funcs:
-		raise ValueError(f'Distance method {distance_method} not understood')
-	dist_func = dist_funcs[distance_method]
 	if isinstance(target_point, shapely.Point):
 		target_lat = target_point.y
 		target_lng = target_point.x
 	else:
 		target_lat, target_lng = target_point
-	return dist_func(
-		numpy.repeat(target_lat, lats.size), numpy.repeat(target_lng, lngs.size), lats, lngs
+	return _vectorized_distance(
+		numpy.repeat(target_lat, lats.size),
+		numpy.repeat(target_lng, lngs.size),
+		lats,
+		lngs,
+		distance_method,
 	)
 
 
@@ -255,7 +266,7 @@ def get_distance(
 	if distance_method == DistanceMethod.Euclidean:
 		return euclidean_distance(lng1, lat1, lng2, lat2)
 	if distance_method == DistanceMethod.Manhattan:
-		return euclidean_distance(lng1, lat1, lng2, lat2)
+		return manhattan_distance(lng1, lat1, lng2, lat2)
 	raise ValueError(f'Distance method {distance_method} not understood')
 
 
@@ -324,10 +335,7 @@ def get_closest_points(
 	lngs, lats = shapely.get_coordinates(points).T
 	target_lng = numpy.repeat(target_point.x, n)
 	target_lat = numpy.repeat(target_point.y, n)
-	if distance_method not in dist_funcs:
-		raise ValueError(f'Distance method {distance_method} not understood')
-	dist_func = dist_funcs[distance_method]
-	distances = dist_func(target_lat, target_lng, lats, lngs)
+	distances = _vectorized_distance(target_lat, target_lng, lats, lngs, distance_method)
 	shortest = distances.min().item()
 	return [point for i, point in enumerate(points) if distances[i] == shortest], shortest
 
@@ -348,10 +356,7 @@ def self_cartesian_product_distances(
 	lats2 = coords[to_indexes, 1]
 	lngs2 = coords[to_indexes, 0]
 
-	if distance_method not in dist_funcs:
-		raise ValueError(f'Distance method {distance_method} not understood')
-	dist_func = dist_funcs[distance_method]
-	half_distances = dist_func(lats, lngs, lats2, lngs2)
+	half_distances = _vectorized_distance(lats, lngs, lats2, lngs2, distance_method)
 	for i, distance in enumerate(half_distances):
 		from_i = gs.index[from_indexes[i]]
 		to_i = gs.index[to_indexes[i]]
@@ -383,10 +388,7 @@ def cartesian_product_distances(
 	lngs, lats = numpy.repeat(coords_from, n_to, axis=0).T
 	lngs2, lats2 = numpy.tile(coords_to, (n_from, 1)).T
 
-	if distance_method not in dist_funcs:
-		raise ValueError(f'Distance method {distance_method} not understood')
-	dist_func = dist_funcs[distance_method]
-	distances = dist_func(lats, lngs, lats2, lngs2)
+	distances = _vectorized_distance(lats, lngs, lats2, lngs2, distance_method)
 	return pandas.DataFrame(
 		distances.reshape(n_from, n_to), index=gs_from.index, columns=gs_to.index
 	)
