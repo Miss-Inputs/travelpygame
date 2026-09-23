@@ -133,7 +133,7 @@ def get_round_summary(
 		new_rounds = new_rounds.simulate_rounds()
 
 	rows = []
-	for r in new_rounds:
+	for r in tqdm(new_rounds, desc='Getting round summary', unit='round'):
 		assert r.name is not None, 'why is r.name None'
 		# sub.score/sub.distance should always be non-None but this is just to keep the type checker happy, unless we really want to go through the tedium of inventing a ScoredRound type just for that
 		average_distance = mean(sub.distance for sub in r.submissions if sub.distance is not None)
@@ -171,7 +171,7 @@ def get_player_summary(new_rounds: Iterable[Round] | Simulation) -> pandas.DataF
 	times_above_average: dict[str, int] = {}
 	ranks_by_round: defaultdict[str, list[int]] = defaultdict(list)
 	pic_counts: defaultdict[str, list[str]] = defaultdict(list)
-	for r in new_rounds:
+	for r in tqdm(new_rounds, desc='Getting player summary', unit='round'):
 		assert r.name is not None, 'why is r.name None'
 		average_distance = mean(sub.distance for sub in r.submissions if sub.distance is not None)
 
