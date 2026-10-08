@@ -2,12 +2,16 @@
 
 from collections.abc import Hashable, Iterable, Sequence
 from itertools import chain
+from typing import TYPE_CHECKING
 
 import numpy
 import shapely
 from geopandas import GeoDataFrame, GeoSeries
 from geopandas.array import GeometryArray
 from shapely.geometry.base import BaseGeometry, BaseMultipartGeometry
+
+if TYPE_CHECKING:
+	from numpy.typing import NDArray
 
 
 def get_poly_vertices(poly: shapely.Polygon | shapely.MultiPolygon) -> list[shapely.Point]:
@@ -42,7 +46,7 @@ def contains_any(
 def contains_any_array(
 	geo: GeoDataFrame | GeoSeries | GeometryArray | BaseGeometry,
 	points: numpy.ndarray | Sequence[shapely.Point],
-):
+) -> 'NDArray[numpy.bool]':
 	"""Returns an array of of booleans for each point, indicating whether each point is anywhere in a geometry or GeoPandas object."""
 	if isinstance(geo, BaseGeometry):
 		return geo.contains(points)
@@ -65,8 +69,20 @@ def get_polygons(
 	if not isinstance(geom, BaseGeometry):
 		# GeoSeries/array/etc
 		return list(chain.from_iterable(get_polygons(item) for item in geom.dropna()))
-	# Some other geometry, just silently return nothing
+	# Some other geometry, just silently return nothing (should we be doing that?)
 	return []
+
+
+def get_polygon(
+	geom: GeoDataFrame | GeoSeries | GeometryArray | BaseGeometry,
+) -> shapely.Polygon | shapely.MultiPolygon:
+	"""Gets all polygons in all rows in geom (or geom itself if it is already a Polygon/MultiPolygon), and then returns a single Polygon if there is only one."""
+	if isinstance(geom, shapely.Polygon):
+		return geom
+	polygons = get_polygons(geom)
+	if len(polygons) == 1:
+		return polygons[0]
+	return shapely.MultiPolygon(polygons)
 
 
 def find_first_geom_index(

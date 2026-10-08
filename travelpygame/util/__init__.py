@@ -45,6 +45,7 @@ from .geom_utils import (
 	contains_any,
 	find_first_geom_index,
 	get_poly_vertices,
+	get_polygon,
 	get_polygons,
 	get_total_bounds,
 )
@@ -133,6 +134,7 @@ __all__ = [
 	'get_ordinal',
 	'get_point_antipodes',
 	'get_poly_vertices',
+	'get_polygon',
 	'get_polygons',
 	'get_projected_crs',
 	'get_total_bounds',

@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Any
 
 from tqdm.auto import tqdm
 
-from travelpygame import tpg_api
+import travelpygame.tpg_api as api
 from travelpygame.util.text import normalize_player_name
 
 from .classes import PlayerName, PlayerUsername, Round, Submission
@@ -15,9 +15,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def _convert_submission(
-	sub: tpg_api.TPGSubmission, players: dict[str, tpg_api.TPGPlayer]
-) -> Submission:
+def _convert_submission(sub: api.TPGSubmission, players: dict[str, api.TPGPlayer]) -> Submission:
 	extra = {'id': sub.id, 'discord_id': sub.discord_id, 'game': sub.game}
 	if sub.discord_id in players:
 		player = players[sub.discord_id]
@@ -41,17 +39,17 @@ def _convert_submission(
 
 async def get_main_tpg_rounds(game: int = 1, session: 'ClientSession | None' = None) -> list[Round]:
 	if session is None:
-		async with tpg_api.get_session() as sesh:
+		async with api.get_session() as sesh:
 			return await get_main_tpg_rounds(game, sesh)
 
-	api_rounds = await tpg_api.get_rounds(game, session)
-	players = {player.discord_id: player for player in await tpg_api.get_players(session)}
+	api_rounds = await api.get_rounds(game, session)
+	players = {player.discord_id: player for player in await api.get_players(session)}
 
 	rounds: list[Round] = []
 
 	with tqdm(api_rounds, 'Getting submissions', unit='round') as t:
 		for round_ in t:
-			api_subs = await tpg_api.get_round_submissions(round_.number, game, session)
+			api_subs = await api.get_round_submissions(round_.number, game, session)
 			subs = [_convert_submission(sub, players) for sub in api_subs]
 			name = f'R{round_.number}: {round_.country}' if round_.country else f'R{round_.number}'
 			if round_.water:
@@ -79,14 +77,14 @@ async def get_main_tpg_rounds(game: int = 1, session: 'ClientSession | None' = N
 
 async def get_player_id_names(
 	session: 'ClientSession|None' = None, *, normalize: bool = True
-) -> dict[tpg_api.PlayerID, PlayerName]:
+) -> dict[api.PlayerID, PlayerName]:
 	"""Returns a dict mapping Discord IDs to display names. Any player returned by the API without a Discord ID is ignored. If any display name is duplicated, returns the username for any player with that display name instead."""
 	if session is None:
-		async with tpg_api.get_session() as sesh:
+		async with api.get_session() as sesh:
 			return await get_player_id_names(sesh, normalize=normalize)
 
-	names_and_usernames: dict[tpg_api.PlayerID, tuple[PlayerName, PlayerUsername]] = {}
-	players = await tpg_api.get_players(session)
+	names_and_usernames: dict[api.PlayerID, tuple[PlayerName, PlayerUsername]] = {}
+	players = await api.get_players(session)
 	for player in players:
 		discord_id = player.discord_id
 		if not discord_id:

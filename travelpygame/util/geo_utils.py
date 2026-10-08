@@ -42,7 +42,7 @@ def get_area(geom: BaseGeometry | GeoSeries | GeoDataFrame) -> float:
 	return abs(area)
 
 
-def get_midpoint(point_a: shapely.Point, point_b: shapely.Point):
+def get_midpoint(point_a: shapely.Point, point_b: shapely.Point) -> shapely.Point:
 	"""Gets the midpoint of 2 points in WGS84 by calculating the direction and distance from one to the other, and then going forward in that direction half that distance."""
 	# TODO: Vectorized version
 	forward_azimuth, _, dist = wgs84_geod.inv(
@@ -54,7 +54,7 @@ def get_midpoint(point_a: shapely.Point, point_b: shapely.Point):
 
 def get_midpoint_centre(
 	point_a: shapely.Point | tuple[float, float], point_b: shapely.Point | tuple[float, float]
-):
+) -> shapely.Point:
 	"""Gets the midpoint of 2 points by calculating their centre of gravity (as described here: https://geomidpoint.com/calculation.html).
 
 	Assumes both point_a and point_b are in WGS84. Also assumes the earth is a sphere, which it isn't.
@@ -205,7 +205,9 @@ def geod_buffer_as_line(
 	return shapely.LineString(numpy.column_stack((lngs, lats)))
 
 
-def _geod_buffer_as_arc_poly(lat: float, lng: float, distance: float, quad_segs: int, quad: int):
+def _geod_buffer_as_arc_poly(
+	lat: float, lng: float, distance: float, quad_segs: int, quad: int
+) -> shapely.Polygon:
 	"""Important to do things one quadrant at a time to avoid meridian nonsense, or does it"""
 	start = 90 * quad
 	end = 90 * (quad + 1)
@@ -223,7 +225,9 @@ def _geod_buffer_as_arc_poly(lat: float, lng: float, distance: float, quad_segs:
 	return shapely.Polygon(ring)
 
 
-def geod_buffer(point: shapely.Point | tuple[float, float], distance: float, quad_segs: int = 8):
+def geod_buffer(
+	point: shapely.Point | tuple[float, float], distance: float, quad_segs: int = 8
+) -> shapely.MultiPolygon:
 	"""Like shapely.buffer but for geodetic distances, but it currently behaves strangely with large distances anyway. Not quite an issue of antimeridian wrapping, just ends up in the wrong place sometimes…"""
 	if isinstance(point, shapely.Point):
 		lat = point.y
@@ -235,7 +239,9 @@ def geod_buffer(point: shapely.Point | tuple[float, float], distance: float, qua
 	return shapely.MultiPolygon(quadrants)
 
 
-def geod_buffer_line(line: shapely.LineString, distance: float, quad_segs: int = 8):
+def geod_buffer_line(
+	line: shapely.LineString, distance: float, quad_segs: int = 8
+) -> shapely.Polygon:
 	# TODO: Also need to buffer segments in between coords if distance > space between coords, or else this won't work and will return multipolygon (which will fail the assert) so this wouldn't work for now
 	buffers = [geod_buffer((x, y), distance, quad_segs) for x, y in line.coords]
 	joined = shapely.union_all(buffers)
