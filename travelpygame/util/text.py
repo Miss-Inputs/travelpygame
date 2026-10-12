@@ -1,4 +1,5 @@
 """Some string manipulation functions, just because"""
+
 import re
 from collections.abc import Sequence
 
@@ -21,6 +22,7 @@ def levenshtein_dist[T](s1: Sequence[T], s2: Sequence[T]) -> int:
 			r.append(min(insertions, deletions, subs))
 		p = r
 	return p[-1]
+
 
 _emoji_regex_parts = (
 	# This comment is so it lines up nicely when autoformatted
@@ -49,7 +51,7 @@ Unashamedly has false positives and false negatives, as this will never realisti
 """
 
 
-def normalize_player_name(name: str):
+def normalize_player_name(name: str) -> str:
 	name = probably_emoji.sub('', name)
 	# Probably more that can be done there, but that will do the trick
-	return name.strip(' ;:|§.')
+	return name.strip(' ;:|§.\u200d')
