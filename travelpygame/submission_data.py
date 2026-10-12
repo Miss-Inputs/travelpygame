@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Self
 
 import geopandas
+import pandas
 from async_lru import alru_cache
 from geopandas import GeoDataFrame
 from pydantic_core import from_json
@@ -194,10 +195,20 @@ def _deserialize_gdf(gdf: GeoDataFrame) -> list[GroupedSubmission]:
 		rounded_lng = row['rounded_lng']
 		earliest_str = row['earliest_known']
 		earliest_known = (
-			datetime.fromisoformat(earliest_str) if isinstance(earliest_str, str) else None
+			datetime.fromisoformat(earliest_str)
+			if isinstance(earliest_str, str)
+			else earliest_str
+			if isinstance(earliest_str, datetime) and not pandas.isna(earliest_str)
+			else None
 		)
 		latest_str = row['latest_known']
-		latest_known = datetime.fromisoformat(latest_str) if isinstance(latest_str, str) else None
+		latest_known = (
+			datetime.fromisoformat(latest_str)
+			if isinstance(latest_str, str)
+			else latest_str
+			if isinstance(latest_str, datetime) and not pandas.isna(latest_str)
+			else None
+		)
 		game_names = set(from_json(row['game_names']))
 		subs.append(
 			GroupedSubmission(
