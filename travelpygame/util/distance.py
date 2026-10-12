@@ -203,7 +203,7 @@ def manhattan_distance(
 	return numpy.abs(x1 - x2) + numpy.abs(y1 - y2)
 
 
-def _vectorized_distance(
+def vectorized_distance(
 	lat1: FloatNDArray,
 	lng1: FloatNDArray,
 	lat2: FloatNDArray,
@@ -249,7 +249,7 @@ def get_distances(
 		target_lng = target_point.x
 	else:
 		target_lat, target_lng = target_point
-	return _vectorized_distance(
+	return vectorized_distance(
 		numpy.repeat(target_lat, lats.size),
 		numpy.repeat(target_lng, lngs.size),
 		lats,
@@ -352,7 +352,7 @@ def get_closest_points(
 	lngs, lats = shapely.get_coordinates(points).T
 	target_lng = numpy.repeat(target_point.x, n)
 	target_lat = numpy.repeat(target_point.y, n)
-	distances = _vectorized_distance(target_lat, target_lng, lats, lngs, distance_method)
+	distances = vectorized_distance(target_lat, target_lng, lats, lngs, distance_method)
 	shortest = distances.min().item()
 	return [point for i, point in enumerate(points) if distances[i] == shortest], shortest
 
@@ -373,7 +373,7 @@ def self_cartesian_product_distances(
 	lats2 = coords[to_indexes, 1]
 	lngs2 = coords[to_indexes, 0]
 
-	half_distances = _vectorized_distance(lats, lngs, lats2, lngs2, distance_method)
+	half_distances = vectorized_distance(lats, lngs, lats2, lngs2, distance_method)
 	for i, distance in enumerate(half_distances):
 		from_i = gs.index[from_indexes[i]]
 		to_i = gs.index[to_indexes[i]]
@@ -405,7 +405,7 @@ def cartesian_product_distances(
 	lngs, lats = numpy.repeat(coords_from, n_to, axis=0).T
 	lngs2, lats2 = numpy.tile(coords_to, (n_from, 1)).T
 
-	distances = _vectorized_distance(lats, lngs, lats2, lngs2, distance_method)
+	distances = vectorized_distance(lats, lngs, lats2, lngs2, distance_method)
 	return pandas.DataFrame(
 		distances.reshape(n_from, n_to), index=gs_from.index, columns=gs_to.index
 	)
