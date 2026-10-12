@@ -148,7 +148,6 @@ def haversine_distance(
 		ndarray (float) of distances in metres
 
 	"""
-	r = AVERAGE_RADIUS_M
 	if not radians:
 		lat1 = numpy.radians(lat1)
 		lat2 = numpy.radians(lat2)
@@ -157,11 +156,12 @@ def haversine_distance(
 	dlng = lng2 - lng1
 	dlat = lat2 - lat1
 	a = (numpy.sin(dlat / 2) ** 2) + numpy.cos(lat1) * numpy.cos(lat2) * (numpy.sin(dlng / 2) ** 2)
-	c = 2 * numpy.asin(numpy.sqrt(a))
-	if isinstance(c, numpy.floating):
+	central_angle = 2 * numpy.arcsin(numpy.sqrt(a))
+	"""Radians"""
+	if isinstance(central_angle, numpy.floating):
 		# Just to make sure nothing annoying happens elsewhere
-		c = c.item()
-	return c * r
+		central_angle = central_angle.item()
+	return central_angle * AVERAGE_RADIUS_M
 
 
 def geod_distances(
