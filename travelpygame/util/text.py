@@ -54,4 +54,4 @@ Unashamedly has false positives and false negatives, as this will never realisti
 def normalize_player_name(name: str) -> str:
 	name = probably_emoji.sub('', name)
 	# Probably more that can be done there, but that will do the trick
-	return name.strip(' ;:|§.\u200d')
+	return name.strip(' ;:|§.\u200d\ufe0f')
