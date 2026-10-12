@@ -176,7 +176,7 @@ def get_all_point_sets(
 	point_sets = []
 	for player, subs in by_player.items():
 		if minimum_datetime:
-			dates = [sub.earliest_known for sub in subs if sub.earliest_known]
+			dates = [sub.latest_known for sub in subs if sub.latest_known]
 			if not dates or max(dates) < minimum_datetime:
 				continue
 		if minimum_count and len(subs) < minimum_count:
