@@ -42,14 +42,22 @@ class PointSetStats:
 
 	# extreme points
 	# Maybe some of these shouldn't be tuples and should instead be separated into two attributes
-	westmost: tuple[float, list[Hashable]]
-	"""(longitude, list of indexes at this longitude). Assumes the earth is flat and that -180 longitude is the edge of the planet, because WGS84"""
-	eastmost: tuple[float, list[Hashable]]
-	"""(longitude, list of indexes at this longitude). Assumes the earth is flat and that 180 longitude is the edge of the planet, because WGS84"""
-	northmost: tuple[float, list[Hashable]]
-	"""(latitude, list of indexes at this latitude)"""
-	southmost: tuple[float, list[Hashable]]
-	"""(latitude, list of indexes at this latitude)"""
+	westmost_lng: float
+	"""Westmost longitude. Assumes the earth is flat and that -180 longitude is the edge of the planet, because WGS84"""
+	eastmost_lng: float
+	"""Eastmost longitude. Assumes the earth is flat and that -180 longitude is the edge of the planet, because WGS84"""
+	northmost_lat: float
+	"""Northmost latitude"""
+	southmost_lat: float
+	"""Southmost latitude"""
+	westmost: list[Hashable]
+	"""List of indexes at westmost_lng"""
+	eastmost: list[Hashable]
+	"""List of indexes at eastmost_lng"""
+	northmost: list[Hashable]
+	"""List of indexes at northmost_lat"""
+	southmost: list[Hashable]
+	"""List of indexes at southmost_lat"""
 	northwestmost: Hashable
 	northwestmost_dist: float
 	northeastmost: Hashable
@@ -77,6 +85,15 @@ class PointSetStats:
 	closest_to_bbox_dist: float
 
 	@property
+	def longitude_range(self) -> float:
+		# TODO: Make sure this still makes sense if a player has been to different sides of the meridian or antimerdian, or if it's the best we can do
+		return abs(self.eastmost_lng - self.westmost_lng)
+
+	@property
+	def latitude_range(self) -> float:
+		return self.northmost_lat - self.southmost_lat
+
+	@property
 	def centres(self) -> dict[str, shapely.Point]:
 		d = {
 			'Circular mean point': self.circular_mean,
@@ -98,6 +115,8 @@ class PointSetStats:
 			'Diagonal distance of bounding box': self.diagonal_dist,
 			'Total distance from centroid': self.total_dist_from_centroid,
 			'Maximum distance from centroid': self.max_dist_from_centroid,
+			'Latitude range': self.latitude_range,
+			'Longitude range': self.longitude_range,
 		}
 
 	@property
@@ -186,10 +205,14 @@ def get_point_set_stats(
 		centre_of_extremes,
 		geo_median,
 		antipoint,
-		(west, westmost),
-		(east, eastmost),
-		(north, northmost),
-		(south, southmost),
+		west,
+		east,
+		north,
+		south,
+		westmost,
+		eastmost,
+		northmost,
+		southmost,
 		nwmost,
 		nw_dist,
 		nemost,
