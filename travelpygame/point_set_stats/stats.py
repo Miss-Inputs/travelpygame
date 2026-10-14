@@ -115,8 +115,6 @@ class PointSetStats:
 			'Diagonal distance of bounding box': self.diagonal_dist,
 			'Total distance from centroid': self.total_dist_from_centroid,
 			'Maximum distance from centroid': self.max_dist_from_centroid,
-			'Latitude range': self.latitude_range,
-			'Longitude range': self.longitude_range,
 		}
 
 	@property
