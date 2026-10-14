@@ -26,19 +26,22 @@ class PointSetStats:
 	# centres
 	circular_mean: shapely.Point
 	arithmetic_mean: shapely.Point
-	"""Just the mean of all the lat/lng coordinates"""
+	"""Just the mean of all the lat/lng coordinates, i.e. the centroid without projection"""
 	arithmetic_median: shapely.Point
 	closest_to_bbox: shapely.Point
-	raw_centroid: shapely.Point
-	"""Computed using normal geometric CRS, so technically wrong and assumes flat earth"""
 	centroid: shapely.Point | None
 	"""Optional, computed using projected CRS"""
 	centre_of_extremes: shapely.Point
 	"""Centre of bounding box"""
 	geometric_median: shapely.Point | None
 	"""Optional since it can take some time to compute"""
+	antiantipoint: shapely.Point | None
+	"""Antipode of antipoint"""
+	# antipoints
 	antipoint: shapely.Point | None
 	"""Furthest possible point from anywhere on earth, optional since it can take some time to compute"""
+	antipoint_circ_mean: shapely.Point
+	"""Antipode of circular mean"""
 
 	# extreme points
 	# Maybe some of these shouldn't be tuples and should instead be separated into two attributes
@@ -97,16 +100,24 @@ class PointSetStats:
 	def centres(self) -> dict[str, shapely.Point]:
 		d = {
 			'Circular mean point': self.circular_mean,
-			'Mean point': self.arithmetic_mean,
+			'Centroid': self.arithmetic_mean,
 			'Median point': self.arithmetic_median,
 			'Closest point to bounding box corners': self.closest_to_bbox,
-			'Centroid': self.raw_centroid,
 			'Centre of extremes': self.centre_of_extremes,
 		}
 		if self.centroid is not None:
 			d['Centroid (projected)'] = self.centroid
 		if self.geometric_median is not None:
 			d['Geometric median'] = self.geometric_median
+		if self.antiantipoint is not None:
+			d['Antiantipoint'] = self.antiantipoint
+		return d
+
+	@property
+	def antipoints(self) -> dict[str, shapely.Point]:
+		d = {'Antipode of circular mean': self.antipoint_circ_mean}
+		if self.antipoint is not None:
+			d['Antipoint'] = self.antipoint
 		return d
 
 	@property
@@ -175,39 +186,39 @@ def get_point_set_stats(
 	graticules = point_set.coord_array.astype(int)
 	num_unique_graticules = numpy.unique(graticules, sorted=False).shape[0]
 
-	raw_centroid = shapely.centroid(point_set.multipoint)
 	if get_projected_centroid:
 		centroid = point_set.centroid
 		centroid_distances = point_set.get_all_distances(centroid)
 	else:
 		centroid = None
-		centroid_distances = point_set.get_all_distances(raw_centroid)
+		centroid_distances = point_set.get_all_distances(mean)
 	total_centroid_dist = centroid_distances.sum()
 	max_centroid_dist = centroid_distances.max()
 
+	antipoint_circ_mean = get_geometry_antipode(circ_mean)
 	geo_median = None
 	if find_geomedian:
 		initial = centroid if centroid and bbox.contains(centroid) else circ_mean
 		geo_median = find_geometric_median(geo, initial)
 	if find_antipoint:
-		initial = (
-			get_geometry_antipode(geo_median) if geo_median else get_geometry_antipode(circ_mean)
-		)
+		initial = get_geometry_antipode(geo_median) if geo_median else antipoint_circ_mean
 		antipoint, antipoint_dist = find_furthest_point(geo, initial)
 		antipoint_closest, _ = point_set.get_closest_index(antipoint)
+		antiantipoint = get_geometry_antipode(antipoint)
 	else:
-		antipoint = antipoint_dist = antipoint_closest = None
+		antipoint = antipoint_dist = antipoint_closest = antiantipoint = None
 
 	return PointSetStats(
 		circ_mean,
 		mean,
 		median,
 		closest_to_corners,
-		raw_centroid,
 		centroid,
 		centre_of_extremes,
 		geo_median,
+		antiantipoint,
 		antipoint,
+		antipoint_circ_mean,
 		west,
 		east,
 		north,
