@@ -1,13 +1,14 @@
 import warnings
 from collections.abc import Callable, Hashable, Iterable
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
+
+from shapely import Point
 
 if TYPE_CHECKING:
-	from pandas import DataFrame
-	from shapely import Point
+	from pandas import DataFrame, Series
 
 
-def format_number(n: float, decimal_places: int = 6):
+def format_number(n: float, decimal_places: int = 6) -> str:
 	"""Stops printing annoying stupid scientific notation which looks ugly and sucks grawwrrrr"""
 	if n.is_integer():
 		return f'{n:n}'
@@ -43,7 +44,7 @@ def format_point(p: 'Point', decimal_places: int | None = 6) -> str:
 	return format_xy(p.x, p.y, decimal_places)
 
 
-def format_distance(n: float, decimal_places: int = 6, unit: str = 'm'):
+def format_distance(n: float, decimal_places: int = 6, unit: str = 'm') -> str:
 	"""Formats a distance (in metres by default, could be used for other metric units too) as a human-readable string with abbreviated kilo/centi prefixes as appropriate."""
 	if abs(n) > 1_000:
 		return f'{format_number(n / 1_000, decimal_places)}k{unit}'
@@ -52,7 +53,7 @@ def format_distance(n: float, decimal_places: int = 6, unit: str = 'm'):
 	return f'{format_number(n, decimal_places)}{unit}'
 
 
-def format_area(n: float, decimal_places: int = 6, unit: str = 'm²'):
+def format_area(n: float, decimal_places: int = 6, unit: str = 'm²') -> str:
 	"""Formats an area in metres as a human-readable string with m²/km²."""
 	if abs(n) > 1_000_000:
 		return f'{format_number(n / 1_000_000, decimal_places)}k{unit}'
@@ -96,3 +97,14 @@ def format_dataframe(
 	_format_dataframe_inner(df, number_cols, format_number)
 	_format_dataframe_inner(df, percent_cols, '{:%}'.format)
 	return df
+
+
+def _maybe_format_point(item: Any) -> str:
+	return format_point(item) if isinstance(item, Point) else item
+
+
+def format_points(s: 'Series') -> 'Series':
+	"""Converts all Point objects found in a Series to a string with `format_point`.
+	Leaves other items alone.
+	"""
+	return s.map(_maybe_format_point, na_action='ignore')

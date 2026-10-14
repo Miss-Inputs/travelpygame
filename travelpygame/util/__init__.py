@@ -23,6 +23,7 @@ from .formatting import (
 	format_number,
 	format_ordinal,
 	format_point,
+	format_points,
 	format_xy,
 	get_ordinal,
 )
@@ -109,6 +110,7 @@ __all__ = [
 	'format_number',
 	'format_ordinal',
 	'format_point',
+	'format_points',
 	'format_xy',
 	'geod_distance',
 	'geod_distance_and_bearing',
