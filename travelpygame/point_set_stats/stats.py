@@ -42,6 +42,10 @@ class PointSetStats:
 	"""Furthest possible point from anywhere on earth, optional since it can take some time to compute"""
 	antipoint_circ_mean: shapely.Point
 	"""Antipode of circular mean"""
+	antigeomedian: shapely.Point | None
+	"""Antipode of geometric median"""
+	antipoint_in_bbox: shapely.Point | None
+	"""Furthest possible point from anywhere in bounding box"""
 
 	# extreme points
 	# Maybe some of these shouldn't be tuples and should instead be separated into two attributes
@@ -118,6 +122,10 @@ class PointSetStats:
 		d = {'Antipode of circular mean': self.antipoint_circ_mean}
 		if self.antipoint is not None:
 			d['Antipoint'] = self.antipoint
+		if self.antipoint_in_bbox is not None:
+			d['Antipoint within own bounding box'] = self.antipoint_in_bbox
+		if self.antigeomedian is not None:
+			d['Antipode of geometric median'] = self.antigeomedian
 		return d
 
 	@property
@@ -196,17 +204,19 @@ def get_point_set_stats(
 	max_centroid_dist = centroid_distances.max()
 
 	antipoint_circ_mean = get_geometry_antipode(circ_mean)
-	geo_median = None
+	antigeomedian = geo_median = None
 	if find_geomedian:
 		initial = centroid if centroid and bbox.contains(centroid) else circ_mean
 		geo_median = find_geometric_median(geo, initial)
+		antigeomedian = get_geometry_antipode(geo_median)
 	if find_antipoint:
 		initial = get_geometry_antipode(geo_median) if geo_median else antipoint_circ_mean
 		antipoint, antipoint_dist = find_furthest_point(geo, initial)
 		antipoint_closest, _ = point_set.get_closest_index(antipoint)
 		antiantipoint = get_geometry_antipode(antipoint)
+		antipoint_bbox, _ = find_furthest_point(geo, centre_of_extremes, bbox)
 	else:
-		antipoint = antipoint_dist = antipoint_closest = antiantipoint = None
+		antipoint = antipoint_dist = antipoint_closest = antiantipoint = antipoint_bbox = None
 
 	return PointSetStats(
 		circ_mean,
@@ -219,6 +229,8 @@ def get_point_set_stats(
 		antiantipoint,
 		antipoint,
 		antipoint_circ_mean,
+		antigeomedian,
+		antipoint_bbox,
 		west,
 		east,
 		north,
