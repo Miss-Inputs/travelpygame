@@ -48,6 +48,10 @@ class PointSet:
 				)
 			yield index, geom
 
+	def __getitem__(self, key: Hashable) -> shapely.Point:
+		"""Return point by index/label."""
+		return self.points[key]  # ty: ignore[invalid-argument-type] #Should support Hashable as a key type but doesn't, perhaps because Hashable is too broad, but then I'd have to use something else to represent "possible pandas index types"
+
 	@property
 	def count(self) -> int:
 		return self.gdf.index.size
