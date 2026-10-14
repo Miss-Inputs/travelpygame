@@ -5,7 +5,7 @@ import logging
 from collections import defaultdict
 from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from functools import cached_property
 from io import BytesIO
 from pathlib import Path
@@ -162,6 +162,12 @@ def _group_by_player(subs: list[GroupedSubmission]) -> dict['PlayerName', list[G
 	return per_player
 
 
+def _normalize_datetime(dt: datetime) -> datetime:
+	if dt.tzinfo:
+		dt = dt.astimezone(UTC).replace(tzinfo=None)
+	return dt
+
+
 def get_all_point_sets(
 	submissions: list[GroupedSubmission] | dict['PlayerName', list[GroupedSubmission]],
 	minimum_datetime: datetime | None = None,
@@ -177,7 +183,8 @@ def get_all_point_sets(
 	point_sets = []
 	for player, subs in by_player.items():
 		if minimum_datetime:
-			dates = [sub.latest_known for sub in subs if sub.latest_known]
+			minimum_datetime = _normalize_datetime(minimum_datetime)
+			dates = [_normalize_datetime(sub.latest_known) for sub in subs if sub.latest_known]
 			if not dates or max(dates) < minimum_datetime:
 				continue
 		if minimum_count and len(subs) < minimum_count:
