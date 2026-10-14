@@ -153,7 +153,7 @@ def get_point_set_distance(
 		unit='point',
 		disable=not use_tqdm,
 	) as t:
-		for index_a, point_a in points_a.points.items():
+		for index_a, point_a in points_a.items():
 			t.update()
 			index_a = str(index_a)
 			score, closest_dist_b, index_b = _point_set_distance_inner(

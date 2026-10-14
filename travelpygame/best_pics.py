@@ -47,7 +47,7 @@ def get_best_pic(
 	if isinstance(pics, GeoSeries):
 		index = pics.index[index]
 	elif isinstance(pics, PointSet):
-		index = pics.points.index[index]
+		index = pics[index]
 	return index, distance
 
 

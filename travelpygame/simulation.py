@@ -50,12 +50,15 @@ class Simulation:
 	use_tqdm: bool = True
 	# Probably want a random seed parameter in here? Though the rounds have already been rolled, it would only be used for SimulatedStrategy.Random, which is just there for the sake of it really
 
-	def _choose_pic(self, point_set: 'PointSet', target: Point):
+	def _choose_pic(
+		self, point_set: 'PointSet', target: Point
+	) -> tuple[Point, float | None, str | None]:
 		if self.strategy == SimulatedStrategy.Random:
 			desc, point = next(point_set.points.sample(1).items())
 			assert isinstance(point, Point), f'point was {type(point)}, expected Point'
 			# We will just let distance be calculated later
 			distance = None
+			desc = desc if isinstance(desc, str) else None
 		else:
 			best_index, distance = get_best_pic(
 				point_set,
@@ -64,8 +67,7 @@ class Simulation:
 				reverse=self.strategy == SimulatedStrategy.Furthest,
 			)
 			desc = best_index if isinstance(best_index, str) else None
-			point = point_set.points[best_index]
-			assert isinstance(point, Point), f'point was {type(point)}, expected Point'
+			point = point_set[best_index]
 		return point, distance, desc
 
 	def simulate_round(self, name: str, number: int, target: Point) -> Round:
