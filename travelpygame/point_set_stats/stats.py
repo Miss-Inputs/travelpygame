@@ -185,13 +185,18 @@ def get_point_set_stats(
 	total_centroid_dist = centroid_distances.sum()
 	max_centroid_dist = centroid_distances.max()
 
+	geo_median = None
+	if find_geomedian:
+		initial = centroid if centroid and bbox.contains(centroid) else circ_mean
+		geo_median = find_geometric_median(geo, initial)
 	if find_antipoint:
-		initial = get_geometry_antipode(circ_mean)
+		initial = (
+			get_geometry_antipode(geo_median) if geo_median else get_geometry_antipode(circ_mean)
+		)
 		antipoint, antipoint_dist = find_furthest_point(geo, initial)
 		antipoint_closest, _ = point_set.get_closest_index(antipoint)
 	else:
 		antipoint = antipoint_dist = antipoint_closest = None
-	geo_median = find_geometric_median(geo, centroid) if find_geomedian else None
 
 	return PointSetStats(
 		circ_mean,
