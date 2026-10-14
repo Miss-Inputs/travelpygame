@@ -50,14 +50,14 @@ class PointSetStats:
 	"""(latitude, list of indexes at this latitude)"""
 	southmost: tuple[float, list[Hashable]]
 	"""(latitude, list of indexes at this latitude)"""
-	nw_most: tuple[float, Hashable]
-	"""(distance, index closest to corner)"""
-	ne_most: tuple[float, Hashable]
-	"""(distance, index closest to corner)"""
-	sw_most: tuple[float, Hashable]
-	"""(distance, index closest to corner)"""
-	se_most: tuple[float, Hashable]
-	"""(distance, index closest to corner)"""
+	northwestmost: Hashable
+	northwestmost_dist: float
+	northeastmost: Hashable
+	northeastmost_dist: float
+	southwestmost: Hashable
+	southwestmost_dist: float
+	southeastmost: Hashable
+	southeastmost_dist: float
 	antipoint_closest: Hashable | None
 
 	# Distances in metres that might be a good measure of the extent of one's travels
@@ -190,10 +190,14 @@ def get_point_set_stats(
 		(east, eastmost),
 		(north, northmost),
 		(south, southmost),
-		(nw_dist, nwmost),
-		(ne_dist, nemost),
-		(sw_dist, swmost),
-		(se_dist, semost),
+		nwmost,
+		nw_dist,
+		nemost,
+		ne_dist,
+		swmost,
+		sw_dist,
+		semost,
+		se_dist,
 		antipoint_closest,
 		diagonal_dist,
 		total_centroid_dist,
