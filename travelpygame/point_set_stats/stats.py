@@ -74,6 +74,7 @@ class PointSetStats:
 	southeastmost: Hashable
 	southeastmost_dist: float
 	antipoint_closest: Hashable | None
+	anticircmean_closest: Hashable
 
 	# Distances in metres that might be a good measure of the extent of one's travels
 	diagonal_dist: float
@@ -81,6 +82,8 @@ class PointSetStats:
 	max_dist_from_centroid: float
 	antipoint_dist: float | None
 	"""Distance from any point in the point set to the antipoint, so smaller numbers indicate more well-travelled (can cover own deadzones better). Optional since the antipoint can take some time to compute"""
+	anticircmean_dist: float
+	"""Distance from any point in the point set to the antipode of the circular mean"""
 	# Other measures of extent
 	convex_hull_area: float
 	concave_hull_area: float
@@ -134,6 +137,7 @@ class PointSetStats:
 			'Diagonal distance of bounding box': self.diagonal_dist,
 			'Total distance from centroid': self.total_dist_from_centroid,
 			'Maximum distance from centroid': self.max_dist_from_centroid,
+			'Distance to antipode of circular mean': self.anticircmean_dist,
 		}
 
 	@property
@@ -204,6 +208,8 @@ def get_point_set_stats(
 	max_centroid_dist = centroid_distances.max()
 
 	antipoint_circ_mean = get_geometry_antipode(circ_mean)
+	anticircmean_closest, anticircmean_dist = point_set.get_closest_index(antipoint_circ_mean)
+
 	antigeomedian = geo_median = None
 	if find_geomedian:
 		initial = centroid if centroid and bbox.contains(centroid) else circ_mean
@@ -248,10 +254,12 @@ def get_point_set_stats(
 		semost,
 		se_dist,
 		antipoint_closest,
+		anticircmean_closest,
 		diagonal_dist,
 		total_centroid_dist,
 		max_centroid_dist,
 		antipoint_dist,
+		anticircmean_dist,
 		get_area(point_set.convex_hull),
 		get_area(point_set.concave_hull),
 		get_area(bbox),
