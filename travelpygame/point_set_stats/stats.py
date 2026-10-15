@@ -188,6 +188,7 @@ def get_point_set_stats(
 	closest_index_to_corners = total_bbox_dists.idxmax()
 	closest_to_bbox_dist = total_bbox_dists.loc[closest_index_to_corners]  # ty: ignore[invalid-argument-type]
 	closest_to_corners = d[closest_index_to_corners]
+	# can this be optimized with the bbox_dists that we already have? Probably but I'll figure it out some other time
 	nwmost, nw_dist = point_set.get_closest_index(nw)
 	nemost, ne_dist = point_set.get_closest_index(ne)
 	swmost, sw_dist = point_set.get_closest_index(sw)
@@ -196,7 +197,7 @@ def get_point_set_stats(
 
 	# This is a really cheesy way of doing this, but I haven't thought of any reason why not to do it
 	graticules = point_set.coord_array.astype(int)
-	num_unique_graticules = numpy.unique(graticules, sorted=False).shape[0]
+	num_unique_graticules = numpy.unique(graticules, axis=0, sorted=False).shape[0]
 
 	if get_projected_centroid:
 		centroid = point_set.centroid
