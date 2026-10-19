@@ -1,11 +1,11 @@
 from collections.abc import Hashable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
 
 import numpy
 import shapely
 from geopandas import GeoSeries
 
+from travelpygame.point_set import PointSet, get_visited_graticules
 from travelpygame.util.distance import cartesian_product_distances, geod_distance
 from travelpygame.util.geo_utils import (
 	circular_mean_xy,
@@ -16,9 +16,6 @@ from travelpygame.util.geo_utils import (
 )
 
 from .optimize_funcs import find_furthest_point, find_geometric_median
-
-if TYPE_CHECKING:
-	from travelpygame.point_set import PointSet
 
 
 @dataclass
@@ -195,9 +192,8 @@ def get_point_set_stats(
 	semost, se_dist = point_set.get_closest_index(se)
 	diagonal_dist = geod_distance(sw, ne)
 
-	# This is a really cheesy way of doing this, but I haven't thought of any reason why not to do it
-	graticules = point_set.coord_array.astype(int)
-	num_unique_graticules = numpy.unique(graticules, axis=0, sorted=False).shape[0]
+	graticules = get_visited_graticules(point_set)
+	num_unique_graticules = len(graticules)
 
 	if get_projected_centroid:
 		centroid = point_set.centroid

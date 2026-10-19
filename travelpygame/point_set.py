@@ -217,3 +217,10 @@ def get_visited_regions(point_set: PointSet, regions: GeoDataFrame | GeoSeries) 
 	# hrm would it be faster to construct the Counter directly
 	counts = indexes.value_counts(sort=True).reindex(regions.index, fill_value=0)
 	return Counter(counts.to_dict())
+
+
+def get_visited_graticules(point_set: PointSet) -> set[tuple[float, float]]:
+	"""Returns the graticules (1 degree by 1 degree not-quite-squares) where a point set has points as a set of (lat, lng) tuples."""
+	graticules = point_set.coord_array.astype(int)
+	# unique_graticules = numpy.unique(graticules, axis=0, sorted=False) #might not be more efficient to do the unique-ing in numpy
+	return {tuple(reversed(g)) for g in graticules.tolist()}
