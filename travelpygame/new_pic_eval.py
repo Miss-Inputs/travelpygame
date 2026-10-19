@@ -197,7 +197,7 @@ class DistanceImprovement:
 def find_improvements_in_round(
 	round_: Round,
 	player_name: str,
-	new_pics: 'PointCollection',
+	new_pics: 'PointSet',
 	distance_required: float | None = None,
 	distance_method: DistanceMethod = DistanceMethod.Geodetic,
 ) -> Iterator[DistanceImprovement]:
@@ -210,30 +210,23 @@ def find_improvements_in_round(
 		distance_required: Only count if it is above this distance.
 	"""
 
-	if isinstance(new_pics, GeoDataFrame):
-		new_pics = new_pics.geometry
-	if isinstance(new_pics, Collection) and not isinstance(new_pics, (Sequence, GeoSeries)):
-		new_pics = list(new_pics)
 	submission_diff = compare_player_in_round(round_, player_name, distance_method)
 	if submission_diff is None:
 		return
-	new_distances = get_distances(submission_diff.target, new_pics, distance_method)
-	for i in range(len(new_distances)):
-		new_distance = new_distances[i]
+	new_distances = new_pics.get_all_distances(submission_diff.target, distance_method)
+	for new_index, new_distance in new_distances.items():
 		if new_distance >= submission_diff.rival_distance:
 			continue
 		if distance_required is not None and new_distance >= distance_required:
 			continue
-		new_name = new_pics.index[i] if isinstance(new_pics, GeoSeries) else None
-		new_loc = new_pics.iloc[i] if isinstance(new_pics, GeoSeries) else new_pics[i]
-		assert isinstance(new_loc, Point), f'new_loc was {type(new_loc)}, expected Point'
+		new_loc = new_pics[new_index]
 		yield DistanceImprovement(
 			submission_diff.round_name,
 			submission_diff.target,
 			None,
 			submission_diff.player_pic,
 			submission_diff.player_distance,
-			new_name if isinstance(new_name, str) else None,
+			new_index if isinstance(new_index, str) else None,
 			new_loc,
 			new_distance,
 		)
@@ -242,7 +235,7 @@ def find_improvements_in_round(
 def find_improvements_in_rounds(
 	rounds: list[Round],
 	player_name: str,
-	new_pics: 'PointCollection',
+	new_pics: 'PointSet',
 	distance_required: float | None = None,
 	distance_method: DistanceMethod = DistanceMethod.Geodetic,
 ) -> Iterator[DistanceImprovement]:
@@ -254,11 +247,6 @@ def find_improvements_in_rounds(
 		new_pics: Set of hypothetical new locations to evaluate.
 		distance_required: Only count if it is above this distance.
 	"""
-	if isinstance(new_pics, GeoDataFrame):
-		new_pics = new_pics.geometry
-	if isinstance(new_pics, Collection) and not isinstance(new_pics, (Sequence, GeoSeries)):
-		new_pics = list(new_pics)
-
 	for round_ in rounds:
 		yield from find_improvements_in_round(
 			round_, player_name, new_pics, distance_required, distance_method

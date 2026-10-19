@@ -9,7 +9,12 @@ from geopandas import GeoDataFrame, GeoSeries
 from shapely import Point
 
 from .point_set import PointSet
-from .util.distance import DistanceMethod, get_closest_index, get_furthest_index
+from .util.distance import (
+	DistanceMethod,
+	cartesian_product_distances,
+	get_closest_index,
+	get_furthest_index,
+)
 
 type PointCollection = Collection[Point] | numpy.ndarray | GeoSeries | GeoDataFrame
 """Seems a bit odd for this to be defined here of all places? Oh well"""
@@ -51,39 +56,13 @@ def get_best_pic(
 	return index, distance
 
 
-def get_worst_point(
-	pics: PointCollection,
-	targets: PointCollection,
-	distance_method: DistanceMethod = DistanceMethod.Geodetic,
+def get_worst_target(
+	pics: PointSet, targets: PointSet, distance_method: DistanceMethod = DistanceMethod.Geodetic
 ) -> tuple[Hashable, float, Hashable]:
 	"""Finds the worst case distance in a group of targets, and the index of that target within `targets`. If `pics` or `targets` are a GeoDataFrame/GeoSeries, returns the index in that object and not the numeric index."""
-	if isinstance(pics, GeoDataFrame):
-		pics = pics.geometry
-	if isinstance(targets, GeoDataFrame):
-		targets = targets.geometry
 
-	if isinstance(pics, Collection) and not isinstance(pics, GeoSeries):
-		pics = list(pics)
-	if isinstance(targets, Collection) and not isinstance(targets, GeoSeries):
-		targets = list(targets)
-	coords = shapely.get_coordinates(pics)
-
-	worst_dist = 0.0
-	worst_pic = -1  # Misnomer, just shorter than saying "closest pic for worst target"
-	worst_target = -1
-	# Yeah I'm implementing max() manually basically
-	# There would still definitely be a better way to implement this, but I'm not thinky that hard right now
-	# Probably want to use a vectorized distance function here?
-	items = targets.items() if isinstance(targets, GeoSeries) else enumerate(targets)
-	for target_index, target in items:
-		if not isinstance(target, Point):
-			raise TypeError(f'Target at {target_index} was {type(target)}, expected Point')
-		pic_index, dist = get_closest_index(target, coords, distance_method)
-		if dist > worst_dist:
-			worst_dist = dist
-			worst_target = target_index
-			worst_pic = pic_index
-
-	if isinstance(pics, GeoSeries):
-		worst_pic = pics.index[worst_pic]
+	distances = cartesian_product_distances(pics.points, targets.points, distance_method)
+	unstacked = distances.unstack(sort=False)
+	worst_target, worst_pic = unstacked.idxmax()  # ty: ignore[not-iterable] #it is a tuple
+	worst_dist = unstacked.max().item()
 	return worst_target, worst_dist, worst_pic
