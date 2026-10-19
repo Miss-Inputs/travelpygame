@@ -11,7 +11,6 @@ from typing import TYPE_CHECKING
 import geopandas
 import pandas
 from geopandas import GeoDataFrame, GeoSeries
-from shapely import Point
 from tqdm.auto import tqdm
 
 from travelpygame.util import DistanceMethod
@@ -24,8 +23,8 @@ from .util.kml import parse_submission_kml
 
 if TYPE_CHECKING:
 	from numpy import ndarray
+	from shapely import Point
 
-	from .best_pics import PointCollection
 	from .point_set import PointSet
 
 logger = logging.getLogger(__name__)
@@ -74,21 +73,12 @@ def load_points_or_rounds(paths: Path | Sequence[Path]) -> GeoDataFrame:
 def find_if_new_pics_better(
 	points: 'PointSet',
 	new_points: 'PointSet',
-	targets: 'PointCollection',
+	targets: 'PointSet',
 	distance_method: DistanceMethod = DistanceMethod.Geodetic,
 ) -> pandas.DataFrame:
-	if isinstance(targets, GeoDataFrame):
-		targets = targets.geometry
-
-	total, items = _to_items(targets)
 	results = {}
-	with tqdm(items, 'Finding if new pics are better', total) as t:
+	with tqdm(targets.items(), 'Finding if new pics are better', len(targets)) as t:
 		for index, target in t:
-			if not isinstance(target, Point):
-				logger.warning(
-					'targets contained %s at index %s, expected Point', type(target), index
-				)
-				continue
 			t.set_postfix(index=index)
 			point, distance = points.get_closest_index(target, distance_method)
 			new_point, new_distance = new_points.get_closest_index(target, distance_method)
@@ -177,15 +167,15 @@ class DistanceImprovement:
 
 	target_name: str | None
 	"""Name of the target, round, etc. if applicable."""
-	target: Point
+	target: 'Point'
 	"""Location of the target."""
 	old_location_name: str | None
 	"""Name of previous location that was closest, if applicable."""
-	old_location: Point
+	old_location: 'Point'
 	old_distance: float
 	new_location_name: str | None
 	"""Name of new location that would be closest, if applicable."""
-	new_location: Point
+	new_location: 'Point'
 	"""New location to be evaluated that is closer than old_location."""
 	new_distance: float
 

@@ -1,27 +1,18 @@
 """Functions related to getting a best pic within a point set to some point, maybe this could be merged into somewhere else."""
 
-from collections.abc import Collection, Hashable
-from typing import Any
+from collections.abc import Hashable
+from typing import TYPE_CHECKING, Any
 
-import numpy
-import shapely
-from geopandas import GeoDataFrame, GeoSeries
-from shapely import Point
+from .util.distance import DistanceMethod, cartesian_product_distances
 
-from .point_set import PointSet
-from .util.distance import (
-	DistanceMethod,
-	cartesian_product_distances,
-	get_closest_index,
-	get_furthest_index,
-)
+if TYPE_CHECKING:
+	from shapely import Point
 
-type PointCollection = Collection[Point] | numpy.ndarray | GeoSeries | GeoDataFrame
-"""Seems a bit odd for this to be defined here of all places? Oh well"""
+	from .point_set import PointSet
 
 
 def get_best_pic(
-	pics: PointCollection | PointSet,
+	pics: 'PointSet',
 	target: 'Point',
 	distance_method: DistanceMethod = DistanceMethod.Geodetic,
 	*,
@@ -34,30 +25,14 @@ def get_best_pic(
 
 	Returns:
 		tuple (index, distance in metres)"""
-	if isinstance(pics, PointSet):
-		coords = pics.coord_array
-	else:
-		if isinstance(pics, GeoDataFrame):
-			pics = pics.geometry
-
-		if isinstance(pics, Collection) and not isinstance(pics, (GeoSeries, GeoDataFrame)):
-			pics = list(pics)
-		coords = shapely.get_coordinates(pics)
-	index, distance = (
-		get_furthest_index(target, coords, distance_method)
-		if reverse
-		else get_closest_index(target, coords, distance_method)
-	)
-
-	if isinstance(pics, GeoSeries):
-		index = pics.index[index]
-	elif isinstance(pics, PointSet):
-		index = pics[index]
+	distances = pics.get_all_distances(target, distance_method)
+	index = distances.idxmax() if reverse else distances.idxmin()
+	distance = distances[index]  # ty: ignore[invalid-argument-type]q
 	return index, distance
 
 
 def get_worst_target(
-	pics: PointSet, targets: PointSet, distance_method: DistanceMethod = DistanceMethod.Geodetic
+	pics: 'PointSet', targets: 'PointSet', distance_method: DistanceMethod = DistanceMethod.Geodetic
 ) -> tuple[Hashable, float, Hashable]:
 	"""Finds the worst case distance in a group of targets, and the index of that target within `targets`. If `pics` or `targets` are a GeoDataFrame/GeoSeries, returns the index in that object and not the numeric index."""
 
