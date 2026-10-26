@@ -182,6 +182,7 @@ def grid_search(
 	distance_method: DistanceMethod | None = None,
 	grid_size: float = 1.0,
 	precision: int = 5,
+	bbox: tuple[float, float, float, float] | None = None,
 	*,
 	early_return: bool = False,
 ) -> list[tuple[float, float, float, float, float]]:
@@ -198,8 +199,16 @@ def grid_search(
 	# TODO: Argument for hash function (lat,lng -> different lat,lng) to use that defaults to josh_hash, if we ever have more than one
 	# TODO: grid_size could optionally be a tuple, for different lat and lng grid size
 
-	lat_gen = frange(-90, 90, grid_size)
-	lng_gen = frange(-180, 180, grid_size)
+	if bbox:
+		min_lng, min_lat, max_lng, max_lat = bbox
+	else:
+		min_lng = -180
+		min_lat = -90
+		max_lng = 180
+		max_lat = 90
+
+	lat_gen = frange(min_lat, max_lat, grid_size)
+	lng_gen = frange(min_lng, max_lng, grid_size)
 	generator = product(lat_gen, lng_gen)
 
 	return _reverse_search(
@@ -220,6 +229,7 @@ def grid_search_point(
 	distance_method: DistanceMethod | None = None,
 	grid_size: float = 1.0,
 	precision: int = 5,
+	bbox: tuple[float, float, float, float] | None = None,
 	*,
 	early_return: bool = False,
 ) -> list[tuple[Point, Point, float]]:
@@ -232,15 +242,25 @@ def grid_search_point(
 			distance_method,
 			grid_size,
 			precision,
+			bbox,
 			early_return=early_return,
 		)
 	]
 
 
-def _yield_random_coords() -> Iterator[tuple[float, float]]:
+def _yield_random_coords(
+	bbox: tuple[float, float, float, float] | None,
+) -> Iterator[tuple[float, float]]:
+	if bbox:
+		min_lng, min_lat, max_lng, max_lat = bbox
+	else:
+		min_lng = -180
+		min_lat = -90
+		max_lng = 180
+		max_lat = 90
 	while True:
-		lat = random.uniform(-90, 90)
-		lng = random.uniform(-180, 180)
+		lat = random.uniform(min_lat, max_lat)
+		lng = random.uniform(min_lng, max_lng)
 		yield lat, lng
 
 
@@ -251,6 +271,7 @@ def random_search(
 	distance_method: DistanceMethod | None = None,
 	limit: int | None = None,
 	precision: int = 5,
+	bbox: tuple[float, float, float, float] | None = None,
 	*,
 	early_return: bool = False,
 ) -> list[tuple[float, float, float, float, float]]:
@@ -265,7 +286,7 @@ def random_search(
 		List of input points and their distance as (lat, lng, hashed lat, hashed lng, distance).
 	"""
 	# TODO: Argument for random seed I guess
-	generator = islice(_yield_random_coords(), limit or None)
+	generator = islice(_yield_random_coords(bbox), limit or None)
 
 	return _reverse_search(
 		josh_hash,
@@ -285,6 +306,7 @@ def random_search_point(
 	distance_method: DistanceMethod | None = None,
 	limit: int | None = None,
 	precision: int = 5,
+	bbox: tuple[float, float, float, float] | None = None,
 	*,
 	early_return: bool = False,
 ) -> list[tuple[Point, Point, float]]:
@@ -297,6 +319,7 @@ def random_search_point(
 			distance_method,
 			limit,
 			precision,
+			bbox,
 			early_return=early_return,
 		)
 	]
