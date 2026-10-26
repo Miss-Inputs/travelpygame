@@ -1,8 +1,9 @@
 """Hashing functions for coordinates. Used for e.g. the H round in Alphabet TPG"""
 
 import math
+import random
 from collections.abc import Callable, Iterable, Iterator
-from itertools import accumulate, product
+from itertools import accumulate, islice, product
 from typing import Any
 
 from shapely import Point
@@ -166,7 +167,7 @@ def _reverse_search(
 		else:
 			dist = get_distance((target_lat, target_lng), (hashed_lat, hashed_lng), distance_method)
 
-		is_match = dist >= threshold if threshold and threshold > 0 else raw_dist == 0
+		is_match = dist <= threshold if threshold and threshold > 0 else raw_dist == 0
 		if is_match:
 			found.append((lat, lng, hashed_lat, hashed_lng, dist))
 		if early_return and raw_dist == 0:
@@ -223,13 +224,78 @@ def grid_search_point(
 	early_return: bool = False,
 ) -> list[tuple[Point, Point, float]]:
 	return [
-		(Point(lng, lat), Point(hashed_lat, hashed_lng), dist)
+		(Point(lng, lat), Point(hashed_lng, hashed_lat), dist)
 		for lat, lng, hashed_lat, hashed_lng, dist in grid_search(
 			target.y,
 			target.x,
 			threshold,
 			distance_method,
 			grid_size,
+			precision,
+			early_return=early_return,
+		)
+	]
+
+
+def _yield_random_coords() -> Iterator[tuple[float, float]]:
+	while True:
+		lat = random.uniform(-90, 90)
+		lng = random.uniform(-180, 180)
+		yield lat, lng
+
+
+def random_search(
+	target_lat: float,
+	target_lng: float,
+	threshold: float | None = None,
+	distance_method: DistanceMethod | None = None,
+	limit: int | None = None,
+	precision: int = 5,
+	*,
+	early_return: bool = False,
+) -> list[tuple[float, float, float, float, float]]:
+	"""Searches possible points for what hashes to the target coordinates.
+	Arguments:
+		threshold: Allowed distance in metres. If None, only return exact matches up to `precision`.
+		distance_method: Method to check that hashed points are within `threshold`. If None, return 0 for exact matches and 1 if only one of lat/lng is correct, otherwise 2.
+		limit: Generate up to this many random points before giving up, or if None/0, keep going until a match is found (forces early_return=True).
+		precision: Number of decimal places to check, defaults to 5.
+		early_return: Exit out of the loop once we have found coordinates that match.
+	Returns:
+		List of input points and their distance as (lat, lng, hashed lat, hashed lng, distance).
+	"""
+	# TODO: Argument for random seed I guess
+	generator = islice(_yield_random_coords(), limit or None)
+
+	return _reverse_search(
+		josh_hash,
+		generator,
+		target_lat,
+		target_lng,
+		threshold,
+		distance_method,
+		precision,
+		early_return=early_return or not limit,
+	)
+
+
+def random_search_point(
+	target: Point,
+	threshold: float | None = None,
+	distance_method: DistanceMethod | None = None,
+	limit: int | None = None,
+	precision: int = 5,
+	*,
+	early_return: bool = False,
+) -> list[tuple[Point, Point, float]]:
+	return [
+		(Point(lng, lat), Point(hashed_lng, hashed_lat), dist)
+		for lat, lng, hashed_lat, hashed_lng, dist in random_search(
+			target.y,
+			target.x,
+			threshold,
+			distance_method,
+			limit,
 			precision,
 			early_return=early_return,
 		)
