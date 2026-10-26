@@ -1,9 +1,15 @@
 """Hashing functions for coordinates. Used for e.g. the H round in Alphabet TPG"""
+
 import math
-from itertools import accumulate
+from collections.abc import Callable, Iterable, Iterator
+from itertools import accumulate, product
 from typing import Any
 
 from shapely import Point
+
+from travelpygame.util import DistanceMethod, get_distance
+
+type Hasher = Callable[[float, float], tuple[float, float]]
 
 
 def _half(x: float, _y: Any) -> float:
@@ -124,3 +130,107 @@ def josh_hash(lat: float, lng: float) -> tuple[float, float]:
 def josh_hash_point(point: Point) -> Point:
 	lat, lng = josh_hash(point.y, point.x)
 	return Point(lng, lat)
+
+
+def frange(start: float, stop: float, step: float) -> Iterator[float]:
+	while start < stop:
+		yield start
+		start += step
+
+
+def _compare_coords(lat1: float, lng1: float, lat2: float, lng2: float, precision: int) -> int:
+	tol = 10**-precision
+	lat_diff = not math.isclose(lat1, lat2, rel_tol=0, abs_tol=tol)
+	lng_diff = not math.isclose(lng1, lng2, rel_tol=0, abs_tol=tol)
+	return lat_diff + lng_diff
+
+
+def _reverse_search(
+	hasher: Hasher,
+	candidates: Iterable[tuple[float, float]],
+	target_lat: float,
+	target_lng: float,
+	threshold: float | None = None,
+	distance_method: DistanceMethod | None = None,
+	precision: int = 5,
+	*,
+	early_return: bool = False,
+) -> list[tuple[float, float, float, float, float]]:
+	# TODO: This should be using itertools.batched or whatever to get vectorized distances, probably
+	found = []
+	for lat, lng in candidates:
+		hashed_lat, hashed_lng = hasher(lat, lng)
+		raw_dist = _compare_coords(target_lat, target_lng, hashed_lat, hashed_lng, precision)
+		if distance_method is None:
+			dist = raw_dist
+		else:
+			dist = get_distance((target_lat, target_lng), (hashed_lat, hashed_lng), distance_method)
+
+		is_match = dist >= threshold if threshold and threshold > 0 else raw_dist == 0
+		if is_match:
+			found.append((lat, lng, hashed_lat, hashed_lng, dist))
+		if early_return and raw_dist == 0:
+			break
+	return found
+
+
+def grid_search(
+	target_lat: float,
+	target_lng: float,
+	threshold: float | None = None,
+	distance_method: DistanceMethod | None = None,
+	grid_size: float = 1.0,
+	precision: int = 5,
+	*,
+	early_return: bool = False,
+) -> list[tuple[float, float, float, float, float]]:
+	"""Searches possible points for what hashes to the target coordinates.
+	Arguments:
+		threshold: Allowed distance in metres. If None, only return exact matches up to `precision`.
+		distance_method: Method to check that hashed points are within `threshold`. If None, return 0 for exact matches and 1 if only one of lat/lng is correct, otherwise 2.
+		grid_size: Size in degrees of the grid.
+		precision: Number of decimal places to check, defaults to 5.
+		early_return: Exit out of the loop once we have found coordinates that match.
+	Returns:
+		List of input points and their distance as (lat, lng, hashed lat, hashed lng, distance).
+	"""
+	# TODO: Argument for hash function (lat,lng -> different lat,lng) to use that defaults to josh_hash, if we ever have more than one
+	# TODO: grid_size could optionally be a tuple, for different lat and lng grid size
+
+	lat_gen = frange(-90, 90, grid_size)
+	lng_gen = frange(-180, 180, grid_size)
+	generator = product(lat_gen, lng_gen)
+
+	return _reverse_search(
+		josh_hash,
+		generator,
+		target_lat,
+		target_lng,
+		threshold,
+		distance_method,
+		precision,
+		early_return=early_return,
+	)
+
+
+def grid_search_point(
+	target: Point,
+	threshold: float | None = None,
+	distance_method: DistanceMethod | None = None,
+	grid_size: float = 1.0,
+	precision: int = 5,
+	*,
+	early_return: bool = False,
+) -> list[tuple[Point, Point, float]]:
+	return [
+		(Point(lng, lat), Point(hashed_lat, hashed_lng), dist)
+		for lat, lng, hashed_lat, hashed_lng, dist in grid_search(
+			target.y,
+			target.x,
+			threshold,
+			distance_method,
+			grid_size,
+			precision,
+			early_return=early_return,
+		)
+	]
