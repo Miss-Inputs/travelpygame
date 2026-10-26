@@ -16,7 +16,6 @@ from .tpg_data import (
 )
 from .util import (
 	geod_distance,
-	geodataframe_to_csv,
 	get_closest_index,
 	get_closest_point,
 	load_points,
@@ -35,7 +34,6 @@ __all__ = [
 	'convert_submission_tracker',
 	'find_if_new_pics_better',
 	'geod_distance',
-	'geodataframe_to_csv',
 	'get_all_official_data',
 	'get_all_point_sets',
 	'get_closest_index',

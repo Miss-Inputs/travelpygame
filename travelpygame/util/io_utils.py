@@ -112,23 +112,6 @@ def _geodataframe_to_normal_df(
 	return df
 
 
-def geodataframe_to_csv(
-	gdf: geopandas.GeoDataFrame,
-	path: Path,
-	lat_col_name: Hashable = 'lat',
-	lng_col_name: Hashable = 'lng',
-	*,
-	include_z: bool = False,
-	insert_before: bool = True,
-	index: bool = True,
-):
-	"""Outputs a GeoDataFrame to CSV with lat and lng columns, instead of outputting as a WKT string."""
-	df = _geodataframe_to_normal_df(
-		gdf, lat_col_name, lng_col_name, include_z=include_z, insert_before=insert_before
-	)
-	df.to_csv(path, index=index)
-
-
 dataframe_compressed_exts = {'gz', 'bz2', 'zip', 'xz', 'zst'}
 csv_exts = {'csv', 'tsv'}
 excel_exts = {'xls', 'xlsx', 'xlsm', 'xlsb', 'odf', 'ods', 'odt'}
